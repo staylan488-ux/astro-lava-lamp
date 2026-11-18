@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Astro Physical Lava Lamp Simulation</title>
+  <meta name="description" content="Real-time 3D WebGL 2 physical lava lamp simulation with Rayleigh-Bénard thermodynamics, subsurface scattering, and tactile fluid controls." />
+  <meta name="theme-color" content="#ff451a" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Astro Physical Lava Lamp Simulation" />
+  <meta property="og:description" content="Interactive 3D WebGL 2 lava lamp with real thermodynamics, subsurface scattering, and tactile fluid swirling." />
+  <meta property="og:url" content="https://staylan488-ux.github.io/astro-lava-lamp/" />
+  <meta property="og:image" content="https://staylan488-ux.github.io/astro-lava-lamp/preview.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Astro Physical Lava Lamp Simulation" />
+  <meta name="twitter:description" content="Interactive 3D WebGL 2 lava lamp with real thermodynamics, subsurface scattering, and tactile fluid swirling." />
+  <meta name="twitter:image" content="https://staylan488-ux.github.io/astro-lava-lamp/preview.png" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <canvas id="lampCanvas"></canvas>
+
+  <!-- Live Thermal Readout Badge -->
+  <div class="top-bar">
+    <div class="brand-pill">
+      <span id="statusDot" class="status-dot"></span>
+      <span class="brand-title">ASTRO THERMO-FLUID</span>
+      <span id="thermoReadout" class="thermo-readout">54°C · Optimal Flow</span>
+    </div>
+  </div>
+
+  <!-- Top-Right Toggle & Fullscreen -->
+  <div class="quick-corner">
+    <button id="btnToggleUi" class="icon-btn" title="Toggle Controls (H)">Hide UI</button>
+    <button id="btnFullscreen" class="icon-btn" title="Toggle Fullscreen (F)">Fullscreen</button>
+  </div>
+
+  <!-- Studio Control Panel -->
+  <aside id="controlPanel" class="control-panel">
+    <!-- Thermodynamics & Power -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-label">Thermodynamics</span>
+        <span id="dimmerLabel" class="value-badge">40W · 100%</span>
+      </div>
+
+      <div class="button-row">
+        <button id="btnPower" class="btn active">Lamp Power: ON</button>
+        <button id="btnNudge" class="btn" title="Gently tap the glass globe">Tap Glass</button>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-top">
+          <span>Halogen Dimmer</span>
+        </div>
+        <div class="slider-wrap">
+          <input id="sliderDimmer" type="range" min="0" max="140" value="100" step="1" />
+        </div>
+        <div class="sweet-spot-ticks">
+          <span>Off</span>
+          <span>Lazy</span>
+          <span class="optimal-mark">★ Sweet Spot</span>
+          <span>Overheat</span>
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button id="btnWarmFlow" class="btn" title="Jump straight to warmed-up flowing equilibrium">Instant Warm</button>
+        <button id="btnColdStart" class="btn" title="Cool wax to solid puck and watch realistic stalagmite warm-up">Cold Start</button>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-top">
+          <span>Time-Lapse Speed</span>
+          <span id="speedLabel" class="value-badge">1.0×</span>
+        </div>
+        <input id="sliderSpeed" type="range" min="5" max="80" value="10" step="5" />
+      </div>
+    </div>
+
+    <!-- Classic Colorway Presets -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-label">Classic Colorways</span>
+      </div>
+      <div id="presetGrid" class="preset-grid">
+        <!-- Populated by main.js -->
+      </div>
+
+      <div class="color-pickers">
+        <label class="color-field">
+          <span>Wax</span>
+          <input id="colorWax" type="color" value="#ff2a12" />
+        </label>
+        <label class="color-field">
+          <span>Liquid</span>
+          <input id="colorLiquid" type="color" value="#5222b8" />
+        </label>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-top">
+          <span>Liquid Dye Density</span>
+          <span id="clarityLabel" class="value-badge">55%</span>
+        </div>
+        <input id="sliderClarity" type="range" min="0" max="100" value="55" step="1" />
+      </div>
+    </div>
+
+    <!-- Hardware & Studio Environment -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-label">Hardware &amp; Room</span>
+      </div>
+
+      <div class="button-row" id="metalButtons">
+        <button class="btn active" data-metal="0">Silver</button>
+        <button class="btn" data-metal="1">Brass</button>
+        <button class="btn" data-metal="2">Matte Black</button>
+        <button class="btn" data-metal="3">Copper</button>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-top">
+          <span>Room Lighting</span>
+          <span id="roomLabel" class="value-badge">36%</span>
+        </div>
+        <input id="sliderRoom" type="range" min="4" max="100" value="36" step="1" />
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-top">
+          <span>Optical Halation</span>
+          <span id="bloomLabel" class="value-badge">34%</span>
+        </div>
+        <input id="sliderBloom" type="range" min="0" max="75" value="34" step="1" />
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-top">
+          <span>Render Quality</span>
+          <span id="qualityLabel" class="value-badge">High (1.0×)</span>
+        </div>
+        <div class="button-row three" id="qualityButtons">
+          <button class="btn" data-scale="0.75">Perf</button>
+          <button class="btn active" data-scale="1.0">High</button>
+          <button class="btn" data-scale="1.25">Ultra</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <div id="hintPill" class="hint-pill">
+    Drag glass to swirl fluid · Drag room to orbit · Scroll to zoom · Press H for Zen mode
+  </div>
+
+  <div id="errorBanner" class="error-banner"></div>
+
+  <script src="physics.js?v=3"></script>
+  <script src="shaders.js?v=3"></script>
+  <script src="renderer.js?v=3"></script>
+  <script src="main.js?v=3"></script>
+</body>
+</html>

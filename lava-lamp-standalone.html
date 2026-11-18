@@ -1,0 +1,4032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Astro Physical Lava Lamp Simulation</title>
+  <meta name="description" content="Real-time 3D WebGL 2 physical lava lamp simulation with Rayleigh-Bénard thermodynamics, subsurface scattering, and tactile fluid controls." />
+  <meta name="theme-color" content="#ff451a" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Astro Physical Lava Lamp Simulation" />
+  <meta property="og:description" content="Interactive 3D WebGL 2 lava lamp with real thermodynamics, subsurface scattering, and tactile fluid swirling." />
+  <meta property="og:url" content="https://staylan488-ux.github.io/astro-lava-lamp/" />
+  <meta property="og:image" content="https://staylan488-ux.github.io/astro-lava-lamp/preview.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Astro Physical Lava Lamp Simulation" />
+  <meta name="twitter:description" content="Interactive 3D WebGL 2 lava lamp with real thermodynamics, subsurface scattering, and tactile fluid swirling." />
+  <meta name="twitter:image" content="https://staylan488-ux.github.io/astro-lava-lamp/preview.png" />
+  <style>
+/* ============================================================================
+   Astro Physical Lava Lamp — Tactile Studio Control UI
+   ============================================================================ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --panel-bg: rgba(16, 17, 23, 0.76);
+  --panel-border: rgba(255, 255, 255, 0.09);
+  --panel-highlight: rgba(255, 255, 255, 0.045);
+  --text-primary: #f3f4f8;
+  --text-secondary: rgba(235, 238, 248, 0.62);
+  --text-muted: rgba(235, 238, 248, 0.40);
+  --accent: #ff6a3d;
+  --accent-glow: rgba(255, 106, 61, 0.35);
+  --radius-lg: 16px;
+  --radius-md: 10px;
+  --radius-sm: 7px;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #060609;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+#lampCanvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  cursor: grab;
+  touch-action: none;
+}
+
+#lampCanvas:active {
+  cursor: grabbing;
+}
+
+/* Top-left subtle status badge */
+.top-bar {
+  position: fixed;
+  top: 20px;
+  left: 22px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 10;
+  pointer-events: none;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+body.zen-mode .top-bar,
+body.zen-mode .control-panel,
+body.zen-mode .hint-pill {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-6px);
+}
+
+body.zen-mode .control-panel {
+  transform: translateX(18px);
+}
+
+.brand-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--panel-bg);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff6a3d;
+  box-shadow: 0 0 10px #ff6a3d;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.status-dot.off {
+  background: #555968;
+  box-shadow: none;
+}
+
+.brand-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--text-primary);
+}
+
+.thermo-readout {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  padding-left: 8px;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Floating Quick Action Buttons (always accessible in corner) */
+.quick-corner {
+  position: fixed;
+  top: 20px;
+  right: 22px;
+  display: flex;
+  gap: 8px;
+  z-index: 20;
+}
+
+.icon-btn {
+  height: 36px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--panel-bg);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.icon-btn:hover {
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(28, 30, 40, 0.85);
+}
+
+/* Right-side Control Panel */
+.control-panel {
+  position: fixed;
+  top: 68px;
+  right: 22px;
+  width: 304px;
+  max-height: calc(100vh - 90px);
+  overflow-y: auto;
+  padding: 16px;
+  background: var(--panel-bg);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.section + .section {
+  padding-top: 13px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.value-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* Power + Mode Row */
+.button-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.button-row.three {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.btn {
+  padding: 8px 10px;
+  background: var(--panel-highlight);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  text-align: center;
+}
+
+.btn:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn.active {
+  background: rgba(255, 106, 61, 0.18);
+  border-color: rgba(255, 106, 61, 0.55);
+  color: #fff;
+  box-shadow: 0 0 16px rgba(255, 106, 61, 0.16);
+}
+
+/* Custom Range Sliders */
+.slider-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.slider-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.slider-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  outline: none;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #f5f6fa;
+  border: 2px solid #181a22;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
+  transition: transform 0.12s ease, background 0.15s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  background: #ffffff;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #f5f6fa;
+  border: 2px solid #181a22;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
+}
+
+.sweet-spot-ticks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9.5px;
+  color: var(--text-muted);
+  padding: 0 2px;
+}
+
+.sweet-spot-ticks .optimal-mark {
+  color: rgba(255, 168, 120, 0.85);
+  font-weight: 600;
+}
+
+/* Colorway Preset Swatches */
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+
+.preset-card {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px;
+  background: var(--panel-highlight);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.preset-card:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--text-primary);
+}
+
+.preset-card.active {
+  border-color: rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.11);
+  color: #fff;
+}
+
+.swatch-dual {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.4);
+}
+
+/* Custom Color Pickers */
+.color-pickers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.color-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 9px;
+  background: var(--panel-highlight);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.color-field input[type="color"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.color-field input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.color-field input[type="color"]::-webkit-color-swatch {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+}
+
+/* Bottom subtle interaction hint */
+.hint-pill {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 7px 15px;
+  background: rgba(14, 15, 20, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 999px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  pointer-events: none;
+  z-index: 10;
+  white-space: nowrap;
+  transition: opacity 0.5s ease;
+}
+
+.error-banner {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: #08090d;
+  color: #ff8570;
+  font-family: var(--font-mono);
+  padding: 32px;
+  text-align: center;
+  z-index: 100;
+}
+
+@media (max-width: 720px) {
+  .control-panel {
+    top: auto;
+    bottom: 14px;
+    right: 14px;
+    left: 14px;
+    width: auto;
+    max-height: 46vh;
+  }
+  .hint-pill {
+    display: none;
+  }
+}
+
+</style>
+</head>
+<body>
+  <canvas id="lampCanvas"></canvas>
+
+  <!-- Live Thermal Readout Badge -->
+  <div class="top-bar">
+    <div class="brand-pill">
+      <span id="statusDot" class="status-dot"></span>
+      <span class="brand-title">ASTRO THERMO-FLUID</span>
+      <span id="thermoReadout" class="thermo-readout">54°C · Optimal Flow</span>
+    </div>
+  </div>
+
+  <!-- Top-Right Toggle & Fullscreen -->
+  <div class="quick-corner">
+    <button id="btnToggleUi" class="icon-btn" title="Toggle Controls (H)">Hide UI</button>
+    <button id="btnFullscreen" class="icon-btn" title="Toggle Fullscreen (F)">Fullscreen</button>
+  </div>
+
+  <!-- Studio Control Panel -->
+  <aside id="controlPanel" class="control-panel">
+    <!-- Thermodynamics & Power -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-label">Thermodynamics</span>
+        <span id="dimmerLabel" class="value-badge">40W · 100%</span>
+      </div>
+
+      <div class="button-row">
+        <button id="btnPower" class="btn active">Lamp Power: ON</button>
+        <button id="btnNudge" class="btn" title="Gently tap the glass globe">Tap Glass</button>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-top">
+          <span>Halogen Dimmer</span>
+        </div>
+        <div class="slider-wrap">
+          <input id="sliderDimmer" type="range" min="0" max="140" value="100" step="1" />
+        </div>
+        <div class="sweet-spot-ticks">
+          <span>Off</span>
+          <span>Lazy</span>
+          <span class="optimal-mark">★ Sweet Spot</span>
+          <span>Overheat</span>
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button id="btnWarmFlow" class="btn" title="Jump straight to warmed-up flowing equilibrium">Instant Warm</button>
+        <button id="btnColdStart" class="btn" title="Cool wax to solid puck and watch realistic stalagmite warm-up">Cold Start</button>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-top">
+          <span>Time-Lapse Speed</span>
+          <span id="speedLabel" class="value-badge">1.0×</span>
+        </div>
+        <input id="sliderSpeed" type="range" min="5" max="80" value="10" step="5" />
+      </div>
+    </div>
+
+    <!-- Classic Colorway Presets -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-label">Classic Colorways</span>
+      </div>
+      <div id="presetGrid" class="preset-grid">
+        <!-- Populated by main.js -->
+      </div>
+
+      <div class="color-pickers">
+        <label class="color-field">
+          <span>Wax</span>
+          <input id="colorWax" type="color" value="#ff2a12" />
+        </label>
+        <label class="color-field">
+          <span>Liquid</span>
+          <input id="colorLiquid" type="color" value="#5222b8" />
+        </label>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-top">
+          <span>Liquid Dye Density</span>
+          <span id="clarityLabel" class="value-badge">55%</span>
+        </div>
+        <input id="sliderClarity" type="range" min="0" max="100" value="55" step="1" />
+      </div>
+    </div>
+
+    <!-- Hardware & Studio Environment -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-label">Hardware &amp; Room</span>
+      </div>
+
+      <div class="button-row" id="metalButtons">
+        <button class="btn active" data-metal="0">Silver</button>
+        <button class="btn" data-metal="1">Brass</button>
+        <button class="btn" data-metal="2">Matte Black</button>
+        <button class="btn" data-metal="3">Copper</button>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-top">
+          <span>Room Lighting</span>
+          <span id="roomLabel" class="value-badge">36%</span>
+        </div>
+        <input id="sliderRoom" type="range" min="4" max="100" value="36" step="1" />
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-top">
+          <span>Optical Halation</span>
+          <span id="bloomLabel" class="value-badge">34%</span>
+        </div>
+        <input id="sliderBloom" type="range" min="0" max="75" value="34" step="1" />
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-top">
+          <span>Render Quality</span>
+          <span id="qualityLabel" class="value-badge">High (1.0×)</span>
+        </div>
+        <div class="button-row three" id="qualityButtons">
+          <button class="btn" data-scale="0.75">Perf</button>
+          <button class="btn active" data-scale="1.0">High</button>
+          <button class="btn" data-scale="1.25">Ultra</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <div id="hintPill" class="hint-pill">
+    Drag glass to swirl fluid · Drag room to orbit · Scroll to zoom · Press H for Zen mode
+  </div>
+
+  <div id="errorBanner" class="error-banner"></div>
+
+  <script>
+// ============================================================================
+// LavaLamp Physics Engine
+// Thermodynamics, Rayleigh-Benard buoyancy, Plateau-Rayleigh necking,
+// Cold-start solidification/stalagmites, and 8D Orthoplex surfactant-film
+// coalescence & split dynamics.
+// ============================================================================
+
+(function () {
+  'use strict';
+
+  const NUM_PARCELS = 52;
+  const NUM_SLOTS = 16; // 16 unit vectors of the 8D cross-polytope {+-e_1 ... +-e_8}
+
+  // Exact shared geometry functions (must match shaders.js)
+  function glassOuterRadius(y) {
+    const v = y - 1.80;
+    const dg = 0.18;
+    const sq = Math.sqrt(v * v + dg * dg);
+    const vp = 0.5 * (sq + v - dg);
+    const vm = 0.5 * (sq - v - dg);
+    const b = Math.max(0.0, 1.46 - y);
+    return 0.838 - 0.130 * vp - 0.195 * vm - 0.55 * b * b;
+  }
+
+  function cavityRadius(y) {
+    return glassOuterRadius(y) - 0.044;
+  }
+
+  function meniscusHeight(r, cavR) {
+    const q = cavR > 1e-4 ? Math.min(1.0, r / cavR) : 0.0;
+    return 4.585 + 0.025 * q * q * q * q;
+  }
+
+  // Build the 16 canonical 8D orthoplex basis vectors:
+  // Any two distinct slots have dot product 0 or -1 (never positive!).
+  const SLOT_VECTORS = new Array(NUM_SLOTS);
+  for (let s = 0; s < NUM_SLOTS; s++) {
+    const vec = new Float32Array(8);
+    const axis = s >> 1;
+    const sign = (s & 1) === 0 ? 1.0 : -1.0;
+    vec[axis] = sign;
+    SLOT_VECTORS[s] = vec;
+  }
+
+  function dot8(a, aOff, b, bOff) {
+    let sum = 0.0;
+    for (let k = 0; k < 8; k++) {
+      sum += a[aOff + k] * b[bOff + k];
+    }
+    return sum;
+  }
+
+  function normalize8(arr, off) {
+    let sq = 0.0;
+    for (let k = 0; k < 8; k++) sq += arr[off + k] * arr[off + k];
+    if (sq > 1e-12) {
+      const inv = 1.0 / Math.sqrt(sq);
+      for (let k = 0; k < 8; k++) arr[off + k] *= inv;
+    } else {
+      arr[off] = 1.0;
+      for (let k = 1; k < 8; k++) arr[off + k] = 0.0;
+    }
+  }
+
+  class LavaPhysics {
+    constructor() {
+      this.count = NUM_PARCELS;
+
+      // Per-parcel state arrays (SoA for zero GC & fast packing)
+      this.px = new Float32Array(NUM_PARCELS);
+      this.py = new Float32Array(NUM_PARCELS);
+      this.pz = new Float32Array(NUM_PARCELS);
+
+      this.vx = new Float32Array(NUM_PARCELS);
+      this.vy = new Float32Array(NUM_PARCELS);
+      this.vz = new Float32Array(NUM_PARCELS);
+
+      this.fx = new Float32Array(NUM_PARCELS);
+      this.fy = new Float32Array(NUM_PARCELS);
+      this.fz = new Float32Array(NUM_PARCELS);
+
+      this.radius = new Float32Array(NUM_PARCELS);
+      this.mass = new Float32Array(NUM_PARCELS);
+      this.temp = new Float32Array(NUM_PARCELS);
+      this.dTemp = new Float32Array(NUM_PARCELS);
+      this.solid = new Float32Array(NUM_PARCELS);
+
+      // Smoothed deformation vector (stretch direction * stretch magnitude)
+      this.defX = new Float32Array(NUM_PARCELS);
+      this.defY = new Float32Array(NUM_PARCELS);
+      this.defZ = new Float32Array(NUM_PARCELS);
+
+      // 8D phase vector per parcel + target phase slot
+      this.phase = new Float32Array(NUM_PARCELS * 8);
+      this.targetPhase = new Float32Array(NUM_PARCELS * 8);
+      this.slotId = new Int16Array(NUM_PARCELS);
+
+      // Connected component workspace (zero-alloc)
+      this.compId = new Int16Array(NUM_PARCELS);
+      this.bfsQueue = new Int16Array(NUM_PARCELS);
+      this.compSize = new Int16Array(NUM_PARCELS);
+      this.compMainSlot = new Int16Array(NUM_PARCELS);
+      this.compMinY = new Float32Array(NUM_PARCELS);
+      this.compMeanTemp = new Float32Array(NUM_PARCELS);
+      this.compCx = new Float32Array(NUM_PARCELS);
+      this.compCy = new Float32Array(NUM_PARCELS);
+      this.compCz = new Float32Array(NUM_PARCELS);
+      this.compVx = new Float32Array(NUM_PARCELS);
+      this.compVy = new Float32Array(NUM_PARCELS);
+      this.compVz = new Float32Array(NUM_PARCELS);
+      this.slotUsed = new Uint8Array(NUM_SLOTS);
+      this.slotCx = new Float32Array(NUM_SLOTS);
+      this.slotCy = new Float32Array(NUM_SLOTS);
+      this.slotCz = new Float32Array(NUM_SLOTS);
+
+      // Surfactant film drainage matrix between the 16 slots
+      this.slotDrain = new Float32Array(NUM_SLOTS * NUM_SLOTS);
+      this.slotTouched = new Uint8Array(NUM_SLOTS * NUM_SLOTS);
+
+      // Packed UBO float32 buffer: 56 max parcels * 4 vec4s = 56 * 16 floats = 896 floats
+      this.uboData = new Float32Array(56 * 16);
+
+      // Lamp operating controls
+      this.powerOn = true;
+      this.dimmer = 1.0;        // 0.0 .. 1.4 (1.0 = sweet spot)
+      this.timeScale = 1.0;     // 0.5x .. 8x
+      this.paused = false;
+
+      // Dynamic thermal state
+      this.bulbGlow = 1.0;      // Filament incandescence [0..1.4]
+      this.liquidTemp = 0.50;   // Bulk carrier liquid temperature [0.08..0.70]
+      this.simTime = 0.0;
+
+      // Interactive fluid impulse (glass swirl / tap)
+      this.pointerActive = false;
+      this.pointerPos = [0, 2.5, 0];
+      this.pointerVel = [0, 0, 0];
+
+      // Initialize parcel radii with realistic organic variation
+      this._initRadii();
+      // Start in warmed-up active equilibrium by default
+      this.initWarmedUp();
+    }
+
+    _initRadii() {
+      // Deterministic pseudo-random organic distribution around ~0.168
+      // Total volume ~25% of cavity volume
+      let seed = 1337;
+      const rand = () => {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        return seed / 4294967296;
+      };
+      for (let i = 0; i < NUM_PARCELS; i++) {
+        let r;
+        if (i < 10) {
+          // Slightly larger core reservoir/plume parcels
+          r = 0.182 + 0.022 * rand();
+        } else if (i < 42) {
+          // Standard body parcels
+          r = 0.156 + 0.026 * rand();
+        } else {
+          // Smaller neck/satellite capable parcels
+          r = 0.132 + 0.020 * rand();
+        }
+        this.radius[i] = r;
+        this.mass[i] = r * r * r * 200.0; // proportional to volume
+      }
+    }
+
+    _assignSlot(i, slot) {
+      this.slotId[i] = slot;
+      const sv = SLOT_VECTORS[slot];
+      const off = i * 8;
+      for (let k = 0; k < 8; k++) {
+        this.phase[off + k] = sv[k];
+        this.targetPhase[off + k] = sv[k];
+      }
+    }
+
+    _setTargetSlot(i, slot) {
+      this.slotId[i] = slot;
+      const sv = SLOT_VECTORS[slot];
+      const off = i * 8;
+      for (let k = 0; k < 8; k++) {
+        this.targetPhase[off + k] = sv[k];
+      }
+    }
+
+    // Mode 1: Warmed-up equilibrium (immediately active, flowing lava lamp!)
+    initWarmedUp() {
+      this.powerOn = true;
+      if (this.dimmer < 0.2) this.dimmer = 1.0;
+      this.bulbGlow = this.dimmer;
+      this.liquidTemp = 0.50;
+      this.slotDrain.fill(0);
+
+      let idx = 0;
+
+      // Group 0 (Slot 0): Bottom molten reservoir + rising dome (~22 parcels)
+      for (let i = 0; i < 22; i++, idx++) {
+        const angle = (i / 22) * Math.PI * 2.0 + (i % 3) * 0.35;
+        const ring = i < 14 ? 0.38 + (i % 3) * 0.11 : 0.14 * ((i % 4) * 0.3);
+        const y = i < 14 ? 1.38 + (i % 3) * 0.07 : 1.56 + (i - 14) * 0.075;
+        this.px[idx] = Math.cos(angle) * ring;
+        this.pz[idx] = Math.sin(angle) * ring;
+        this.py[idx] = y;
+        this.vx[idx] = 0;
+        this.vy[idx] = i >= 16 ? 0.08 : 0.0;
+        this.vz[idx] = 0;
+        this.temp[idx] = i >= 15 ? 0.585 : 0.49 + (i % 4) * 0.018;
+        this.solid[idx] = 0.0;
+        this._assignSlot(idx, 0);
+      }
+
+      // Group 1 (Slot 1): Large warm rising plume in lower-mid bottle (9 parcels)
+      for (let i = 0; i < 9; i++, idx++) {
+        const a = i * 2.39996;
+        const rr = i === 0 ? 0.0 : 0.09 * Math.sqrt(i / 9);
+        this.px[idx] = -0.14 + Math.cos(a) * rr;
+        this.pz[idx] = 0.10 + Math.sin(a) * rr;
+        this.py[idx] = 2.45 + (i / 9 - 0.5) * 0.36;
+        this.vx[idx] = 0.01;
+        this.vy[idx] = 0.20;
+        this.vz[idx] = -0.01;
+        this.temp[idx] = 0.625 - (1 - i / 9) * 0.03;
+        this.solid[idx] = 0.0;
+        this._assignSlot(idx, 1);
+      }
+
+      // Group 2 (Slot 2): Medium warm blob nearing the top (7 parcels)
+      for (let i = 0; i < 7; i++, idx++) {
+        const a = i * 2.39996;
+        const rr = i === 0 ? 0.0 : 0.08 * Math.sqrt(i / 7);
+        this.px[idx] = 0.16 + Math.cos(a) * rr;
+        this.pz[idx] = -0.11 + Math.sin(a) * rr;
+        this.py[idx] = 3.85 + (i / 7 - 0.5) * 0.26;
+        this.vx[idx] = -0.01;
+        this.vy[idx] = 0.09;
+        this.vz[idx] = 0.01;
+        this.temp[idx] = 0.545;
+        this.solid[idx] = 0.0;
+        this._assignSlot(idx, 2);
+      }
+
+      // Group 3 (Slot 3): Cooled blob slowly sinking on the right-back (7 parcels)
+      for (let i = 0; i < 7; i++, idx++) {
+        const a = i * 2.39996;
+        const rr = i === 0 ? 0.0 : 0.08 * Math.sqrt(i / 7);
+        this.px[idx] = 0.23 + Math.cos(a) * rr;
+        this.pz[idx] = 0.15 + Math.sin(a) * rr;
+        this.py[idx] = 3.05 + (i / 7 - 0.5) * 0.25;
+        this.vx[idx] = 0.0;
+        this.vy[idx] = -0.16;
+        this.vz[idx] = 0.0;
+        this.temp[idx] = 0.435;
+        this.solid[idx] = 0.0;
+        this._assignSlot(idx, 3);
+      }
+
+      // Group 4 (Slot 4): Smaller blob hovering/cooling at top meniscus (5 parcels)
+      for (let i = 0; i < 5; i++, idx++) {
+        const a = i * 2.39996;
+        const rr = i === 0 ? 0.0 : 0.065;
+        this.px[idx] = -0.08 + Math.cos(a) * rr;
+        this.pz[idx] = -0.09 + Math.sin(a) * rr;
+        this.py[idx] = 4.34 + (i / 5 - 0.5) * 0.16;
+        this.vx[idx] = 0.0;
+        this.vy[idx] = -0.03;
+        this.vz[idx] = 0.0;
+        this.temp[idx] = 0.485;
+        this.solid[idx] = 0.0;
+        this._assignSlot(idx, 4);
+      }
+
+      // Group 5 (Slot 5): Cute small satellite droplet in mid-bottle (2 parcels)
+      for (; idx < NUM_PARCELS; idx++) {
+        this.px[idx] = -0.22 + (idx - 50) * 0.04;
+        this.pz[idx] = 0.16;
+        this.py[idx] = 2.02 + (idx - 50) * 0.06;
+        this.vx[idx] = 0.0;
+        this.vy[idx] = 0.14;
+        this.vz[idx] = 0.0;
+        this.temp[idx] = 0.57;
+        this.solid[idx] = 0.0;
+        this._assignSlot(idx, 5);
+      }
+
+      this.defX.fill(0);
+      this.defY.fill(0);
+      this.defZ.fill(0);
+
+      // Relax a few substeps so initial spacing is completely organic
+      for (let s = 0; s < 15; s++) {
+        this._substep(0.016);
+      }
+      this.packUBO();
+    }
+
+    // Mode 2: Authentic Cold Start (solidified cooled puck at bottom, warms up through stalagmite stage!)
+    initColdStart() {
+      this.powerOn = true;
+      if (this.dimmer < 0.5) this.dimmer = 1.0;
+      this.bulbGlow = 0.08;
+      this.liquidTemp = 0.08;
+      this.slotDrain.fill(0);
+
+      for (let i = 0; i < NUM_PARCELS; i++) {
+        // Pack into a realistic solidified wax mound resting on the bottom coil
+        const layer = Math.floor(i / 14);
+        const inLayer = i % 14;
+        const maxR = Math.max(0.08, 0.52 - layer * 0.11);
+        const ringFrac = inLayer === 0 ? 0.0 : (inLayer < 5 ? 0.48 : 0.95);
+        const angle = inLayer * 2.39996 + layer * 0.7;
+        this.px[i] = Math.cos(angle) * maxR * ringFrac;
+        this.pz[i] = Math.sin(angle) * maxR * ringFrac;
+        this.py[i] = 1.35 + layer * 0.135 + (inLayer % 2) * 0.02;
+        this.vx[i] = 0;
+        this.vy[i] = 0;
+        this.vz[i] = 0;
+        this.temp[i] = 0.08;
+        this.solid[i] = 1.0;
+        this._assignSlot(i, 0);
+      }
+
+      this.defX.fill(0);
+      this.defY.fill(0);
+      this.defZ.fill(0);
+
+      for (let s = 0; s < 12; s++) {
+        this._substep(0.012);
+      }
+      this.packUBO();
+    }
+
+    // Gentle tap / shake impulse on the bottle
+    nudgeBottle(strength = 1.0) {
+      const angle = Math.random() * Math.PI * 2.0;
+      const sx = Math.cos(angle) * 0.42 * strength;
+      const sz = Math.sin(angle) * 0.42 * strength;
+      for (let i = 0; i < NUM_PARCELS; i++) {
+        const hFrac = Math.max(0.15, (this.py[i] - 1.28) / 3.2);
+        this.vx[i] += sx * hFrac + (Math.random() - 0.5) * 0.18 * strength;
+        this.vz[i] += sz * hFrac + (Math.random() - 0.5) * 0.18 * strength;
+        this.vy[i] += (Math.random() - 0.48) * 0.14 * strength;
+      }
+    }
+
+    setPointerImpulse(active, worldPos, worldVel) {
+      this.pointerActive = active;
+      if (active && worldPos && worldVel) {
+        this.pointerPos[0] = worldPos[0];
+        this.pointerPos[1] = worldPos[1];
+        this.pointerPos[2] = worldPos[2];
+        this.pointerVel[0] = worldVel[0];
+        this.pointerVel[1] = worldVel[1];
+        this.pointerVel[2] = worldVel[2];
+      }
+    }
+
+    step(frameDt) {
+      if (this.paused) {
+        this.packUBO();
+        return;
+      }
+      const clampedDt = Math.min(frameDt, 0.05);
+      const totalDt = clampedDt * this.timeScale;
+      // Target substep <= 1/90s for rock-solid spring/cohesion stability even at 8x speed
+      const substeps = Math.max(2, Math.min(28, Math.ceil(totalDt / 0.011)));
+      const dt = totalDt / substeps;
+
+      for (let s = 0; s < substeps; s++) {
+        this._substep(dt);
+      }
+
+      // Connected-component split & surfactant film drainage runs at substep end
+      this._updateTopologyAndPhases(Math.min(totalDt, 0.12));
+      this.packUBO();
+    }
+
+    _substep(dt) {
+      this.simTime += dt;
+      const N = NUM_PARCELS;
+
+      // 1. Update tungsten filament & bulk carrier fluid thermal state
+      const targetPower = this.powerOn ? this.dimmer : 0.0;
+      this.bulbGlow += (targetPower - this.bulbGlow) * Math.min(1.0, dt * 3.5);
+
+      // Bulk liquid warms slowly toward equilibrium (~0.50 at dimmer=1.0, ~0.08 when off)
+      const targetLiq = 0.08 + 0.42 * this.bulbGlow;
+      // Warms in ~45s real-time during Cold Start (or ~6s at 8x timelapse!)
+      const liqRate = targetLiq > this.liquidTemp ? 0.032 : 0.018;
+      this.liquidTemp += (targetLiq - this.liquidTemp) * Math.min(1.0, dt * liqRate);
+
+      // Clear accumulators & compute mean vertical wax flux for incompressible counter-current
+      let centralUpFlux = 0.0;
+      for (let i = 0; i < N; i++) {
+        this.fx[i] = 0.0;
+        this.fy[i] = 0.0;
+        this.fz[i] = 0.0;
+        this.dTemp[i] = 0.0;
+
+        const rSq = this.px[i] * this.px[i] + this.pz[i] * this.pz[i];
+        if (rSq < 0.18) {
+          centralUpFlux += this.vy[i] * this.mass[i];
+        }
+      }
+      centralUpFlux /= N;
+
+      // Slowly wandering Rayleigh-Benard plume angle at base
+      const plumeAng1 = this.simTime * 0.17;
+      const plumeAng2 = -this.simTime * 0.11 + 1.7;
+      const hotX = 0.20 * Math.cos(plumeAng1) + 0.10 * Math.cos(plumeAng2);
+      const hotZ = 0.20 * Math.sin(plumeAng1) + 0.10 * Math.sin(plumeAng2);
+
+      // 2. Single-parcel thermodynamics, buoyancy, coil wetting, & fluid drag
+      for (let i = 0; i < N; i++) {
+        const x = this.px[i];
+        const y = this.py[i];
+        const z = this.pz[i];
+        const r = Math.sqrt(x * x + z * z);
+        const cavR = cavityRadius(y);
+        const m = this.mass[i];
+        let T = this.temp[i];
+
+        // Solidification factor (1 = solid cold wax, 0 = fully molten above T=0.31)
+        const sFactor = Math.max(0.0, Math.min(1.0, (0.31 - T) / 0.11));
+        this.solid[i] = sFactor;
+
+        // --- Heat Input from Bottom Halogen Bulb + Coil ---
+        const hDist = Math.max(0.0, y - 1.28);
+        const bottomHeatZone = Math.exp(-hDist / 0.30);
+        // Plume hotspot asymmetry encourages localized dome rising rather than flat pancake lift
+        const dxHot = x - hotX;
+        const dzHot = z - hotZ;
+        const hotSpot = 0.86 + 0.28 * Math.exp(-(dxHot * dxHot + dzHot * dzHot) / 0.16);
+        // Coil ring conducts heat strongly at r ~ 0.48, y ~ 1.35
+        const dCoilR = r - 0.47;
+        const dCoilY = y - 1.36;
+        const coilBoost = 1.0 + 0.35 * Math.exp(-(dCoilR * dCoilR + dCoilY * dCoilY) / 0.045);
+
+        const qIn = 0.056 * this.bulbGlow * bottomHeatZone * hotSpot * coilBoost;
+
+        // --- Heat Loss to Ambient Liquid & Glass Walls / Top Cap ---
+        const heightFrac = Math.max(0.0, Math.min(1.0, (y - 1.30) / 3.28));
+        // Ambient fluid is warmer near base, cooler near top cap
+        const localFluidTemp = this.liquidTemp * (1.08 - 0.34 * heightFrac);
+        const wallProximity = Math.max(0.0, 1.0 - (cavR - r) / 0.24);
+        const topCooling = heightFrac > 0.72 ? 1.0 + 2.1 * ((heightFrac - 0.72) / 0.28) : 1.0;
+        const coolCoeff = (0.022 + 0.012 * wallProximity) * topCooling;
+
+        this.dTemp[i] += qIn - coolCoeff * (T - localFluidTemp);
+
+        // --- Thermal Buoyancy (Archimedes + Thermal Expansion) ---
+        // Neutral buoyancy at T_neutral = 0.512
+        // Cold solid wax is denser (sinks to bottom); molten hot wax > 0.512 rises!
+        const tNeutral = 0.512;
+        let buoyAccel;
+        if (sFactor > 0.01) {
+          // Semi-solid / solid wax: denser than cold carrier fluid, unless pushed from below by erupting hot wax!
+          buoyAccel = -0.38 * sFactor + 0.55 * (1.0 - sFactor) * Math.tanh((T - tNeutral) * 8.5);
+        } else {
+          buoyAccel = 0.62 * Math.tanh((T - tNeutral) * 7.8);
+        }
+        this.fy[i] += m * buoyAccel;
+
+        // --- Stainless Steel Coil Wetting / Capillary Pinning at Bottom ---
+        // Real lava lamp coils pin the bottom layer of wax so domes neck off instead of whole-pool liftoff
+        if (y < 1.54) {
+          const pinWeight = (1.54 - y) / 0.26;
+          // Pull gently toward coil ring r = 0.45, y = 1.36
+          const targetR = 0.44;
+          if (r > 0.03) {
+            const radialErr = targetR - r;
+            const pull = m * 0.26 * pinWeight * radialErr;
+            this.fx[i] += (x / r) * pull;
+            this.fz[i] += (z / r) * pull;
+          }
+          // Anchor very bottom parcels slightly downward against premature full-pool float
+          if (y < 1.44 && T < 0.64) {
+            this.fy[i] -= m * 0.16 * ((1.44 - y) / 0.16);
+          }
+        }
+
+        // --- Incompressible Carrier Fluid Counter-Current + Gentle Centering ---
+        // Rising central blobs push outer wall fluid slightly downward
+        const bgFlowY = (r < 0.36 ? 0.25 : -0.35) * centralUpFlux;
+        // Very subtle radial centering in upper bottle due to lubrication pressure from tapered glass wall
+        if (r > cavR - 0.22 && r > 1e-4) {
+          const lub = ((r - (cavR - 0.22)) / 0.22);
+          this.fx[i] -= (x / r) * m * 0.12 * lub * lub;
+          this.fz[i] -= (z / r) * m * 0.12 * lub * lub;
+        }
+
+        // Viscous Stokes drag (colder liquid / colder wax has slightly higher drag)
+        const drag = 1.35 + 1.8 * sFactor + 0.35 * (1.0 - this.liquidTemp);
+        this.fx[i] -= m * drag * this.vx[i];
+        this.fy[i] -= m * drag * (this.vy[i] - bgFlowY);
+        this.fz[i] -= m * drag * this.vz[i];
+
+        // --- Interactive Pointer Swirl on Glass ---
+        if (this.pointerActive) {
+          const dxp = x - this.pointerPos[0];
+          const dyp = y - this.pointerPos[1];
+          const dzp = z - this.pointerPos[2];
+          const dSq = dxp * dxp + dyp * dyp + dzp * dzp;
+          if (dSq < 0.65) {
+            const wImp = Math.exp(-dSq / 0.18) * m * 2.8;
+            this.fx[i] += this.pointerVel[0] * wImp;
+            this.fy[i] += this.pointerVel[1] * wImp;
+            this.fz[i] += this.pointerVel[2] * wImp;
+          }
+        }
+      }
+
+      // 3. Pairwise Forces: Cohesion, Plateau-Rayleigh Necking, Surfactant Repulsion, & Conduction
+      for (let i = 0; i < N; i++) {
+        const xi = this.px[i], yi = this.py[i], zi = this.pz[i];
+        const ri = this.radius[i];
+        const Ti = this.temp[i];
+        const si = this.solid[i];
+        const offI = i * 8;
+
+        for (let j = i + 1; j < N; j++) {
+          const dx = this.px[j] - xi;
+          const dy = this.py[j] - yi;
+          const dz = this.pz[j] - zi;
+          const dSq = dx * dx + dy * dy + dz * dz;
+          const sumR = ri + this.radius[j];
+          const maxRange = 1.72 * sumR;
+
+          if (dSq >= maxRange * maxRange || dSq < 1e-10) continue;
+
+          const d = Math.sqrt(dSq);
+          const nx = dx / d;
+          const ny = dy / d;
+          const nz = dz / d;
+
+          // Phase affinity in [-1, 1]; clamp to [0, 1] for intra-droplet vs inter-droplet blend
+          const rawDot = dot8(this.phase, offI, this.phase, j * 8);
+          const affinity = Math.max(0.0, Math.min(1.0, rawDot));
+          const separate = 1.0 - affinity;
+
+          const avgMass = 0.5 * (this.mass[i] + this.mass[j]);
+          const avgSolid = 0.5 * (si + this.solid[j]);
+
+          let fMag = 0.0; // positive = attraction, negative = repulsion
+
+          // A. Intra-droplet mechanics (same blob: incompressible core + surface tension)
+          if (affinity > 0.01) {
+            const dEq = 0.78 * sumR;
+            if (d < dEq) {
+              // Soft incompressible wax core preserves true multi-parcel droplet volume
+              const pen = (dEq - d) / dEq;
+              fMag -= affinity * avgMass * 16.5 * pen * Math.sqrt(pen);
+            } else if (d < 1.68 * sumR) {
+              // Plateau-Rayleigh surface tension: peaks midway, weakens as neck thins so plumes pinch off!
+              const u = (d - dEq) / (1.68 * sumR - dEq);
+              // Cooler wax has slightly stronger surface tension; solid wax binds stiffly (stalagmites!)
+              const surfStrength = 2.65 + 0.95 * (1.0 - 0.5 * (Ti + this.temp[j])) + 3.8 * avgSolid;
+              fMag += affinity * avgMass * surfStrength * Math.sin(Math.PI * u);
+            }
+
+            // Internal viscous coupling + thermal conduction inside same blob
+            if (d < 1.45 * sumR) {
+              const overlap = 1.0 - d / (1.45 * sumR);
+              const visc = affinity * avgMass * (3.2 + 14.0 * avgSolid) * overlap;
+              const dvx = this.vx[j] - this.vx[i];
+              const dvy = this.vy[j] - this.vy[i];
+              const dvz = this.vz[j] - this.vz[i];
+
+              this.fx[i] += dvx * visc;
+              this.fy[i] += dvy * visc;
+              this.fz[i] += dvz * visc;
+              this.fx[j] -= dvx * visc;
+              this.fy[j] -= dvy * visc;
+              this.fz[j] -= dvz * visc;
+
+              // Heat conducts smoothly within a coherent blob
+              const cond = affinity * 0.42 * overlap * (this.temp[j] - Ti);
+              this.dTemp[i] += cond;
+              this.dTemp[j] -= cond;
+            }
+          }
+
+          // B. Inter-droplet surfactant film cushion repulsion (sliding past & squishing!)
+          if (separate > 0.01 && d < 1.20 * sumR) {
+            const pen = (1.20 * sumR - d) / (1.20 * sumR);
+            fMag -= separate * avgMass * 13.0 * pen * pen;
+
+            // Slight tangential lubrication damping on contact
+            const dvDotN = (this.vx[j] - this.vx[i]) * nx +
+                           (this.vy[j] - this.vy[i]) * ny +
+                           (this.vz[j] - this.vz[i]) * nz;
+            if (dvDotN < 0.0) {
+              const damp = separate * avgMass * 3.0 * pen * dvDotN;
+              this.fx[i] += nx * damp;
+              this.fy[i] += ny * damp;
+              this.fz[i] += nz * damp;
+              this.fx[j] -= nx * damp;
+              this.fy[j] -= ny * damp;
+              this.fz[j] -= nz * damp;
+            }
+          }
+
+          if (fMag !== 0.0) {
+            const fx = nx * fMag;
+            const fy = ny * fMag;
+            const fz = nz * fMag;
+            this.fx[i] += fx;
+            this.fy[i] += fy;
+            this.fz[i] += fz;
+            this.fx[j] -= fx;
+            this.fy[j] -= fy;
+            this.fz[j] -= fz;
+          }
+        }
+      }
+
+      // 4. Symplectic Euler Integration + Curved Glass Cavity Wall Boundaries
+      for (let i = 0; i < N; i++) {
+        const invM = 1.0 / this.mass[i];
+        this.vx[i] += this.fx[i] * invM * dt;
+        this.vy[i] += this.fy[i] * invM * dt;
+        this.vz[i] += this.fz[i] * invM * dt;
+
+        // Clamp extreme velocities so numerical spikes are impossible
+        const vSq = this.vx[i] * this.vx[i] + this.vy[i] * this.vy[i] + this.vz[i] * this.vz[i];
+        if (vSq > 2.25) {
+          const s = 1.5 / Math.sqrt(vSq);
+          this.vx[i] *= s;
+          this.vy[i] *= s;
+          this.vz[i] *= s;
+        }
+
+        this.px[i] += this.vx[i] * dt;
+        this.py[i] += this.vy[i] * dt;
+        this.pz[i] += this.vz[i] * dt;
+
+        this.temp[i] = Math.max(0.04, Math.min(0.95, this.temp[i] + this.dTemp[i] * dt));
+
+        // --- Smooth Elastic Cavity Boundary Containment ---
+        const ri = this.radius[i] * 0.78;
+        const floorY = 1.29 + ri * 0.65;
+        if (this.py[i] < floorY) {
+          this.py[i] = floorY;
+          if (this.vy[i] < 0.0) this.vy[i] *= -0.15;
+        }
+
+        const rHoriz = Math.sqrt(this.px[i] * this.px[i] + this.pz[i] * this.pz[i]);
+        const cavR = cavityRadius(this.py[i]);
+        const topY = meniscusHeight(rHoriz, cavR) - ri * 0.72;
+        if (this.py[i] > topY) {
+          this.py[i] = topY;
+          if (this.vy[i] > 0.0) this.vy[i] *= -0.15;
+        }
+
+        const maxR = Math.max(0.05, cavR - ri * 0.78);
+        if (rHoriz > maxR) {
+          const invR = 1.0 / rHoriz;
+          const nx = this.px[i] * invR;
+          const nz = this.pz[i] * invR;
+          this.px[i] = nx * maxR;
+          this.pz[i] = nz * maxR;
+          const vRad = this.vx[i] * nx + this.vz[i] * nz;
+          if (vRad > 0.0) {
+            this.vx[i] -= 1.15 * vRad * nx;
+            this.vz[i] -= 1.15 * vRad * nz;
+          }
+        }
+
+        // Update smooth hydrodynamic parcel deformation (prolate when accelerating/fast, oblate at top/bottom)
+        const speed = Math.sqrt(this.vx[i] * this.vx[i] + this.vy[i] * this.vy[i] + this.vz[i] * this.vz[i]);
+        let tx = 0.0, ty = 0.0, tz = 0.0;
+        if (speed > 0.025 && this.solid[i] < 0.5) {
+          const stretch = Math.min(0.24, speed * 0.55) * (1.0 - this.solid[i]);
+          tx = (this.vx[i] / speed) * stretch;
+          ty = (this.vy[i] / speed) * stretch;
+          tz = (this.vz[i] / speed) * stretch;
+        }
+        // Squash slightly oblate when pressing against top meniscus or floor
+        if (this.py[i] > topY - 0.06) {
+          ty -= 0.14;
+        } else if (this.py[i] < floorY + 0.05) {
+          ty -= 0.10;
+        }
+        const blend = Math.min(1.0, dt * 6.0);
+        this.defX[i] += (tx - this.defX[i]) * blend;
+        this.defY[i] += (ty - this.defY[i]) * blend;
+        this.defZ[i] += (tz - this.defZ[i]) * blend;
+      }
+    }
+
+    // ========================================================================
+    // Connected-Component Split Detection & Surfactant Film Coalescence
+    // Guarantees:
+    //  1) Newly pinched-off droplets only change slot AFTER zero kernel overlap
+    //     (0.000000 visual pop!).
+    //  2) Returning droplets touching the bottom coil smoothly drain their film
+    //     and rotate their 8D phase vector into the reservoir!
+    //  3) Rising hot & sinking cold droplets glide/squish past each other, while
+    //     slow co-thermal touching droplets gradually coalesce!
+    // ========================================================================
+    _updateTopologyAndPhases(dt) {
+      const N = NUM_PARCELS;
+      this.compId.fill(-1);
+      let numComps = 0;
+
+      // 1. Find connected components of parcels that share BOTH spatial kernel overlap
+      //    (d < 2*(r_i + r_j)) AND positive phase affinity (dot > 0.35).
+      for (let i = 0; i < N; i++) {
+        if (this.compId[i] !== -1) continue;
+        const cid = numComps++;
+        this.compId[i] = cid;
+        let qHead = 0, qTail = 0;
+        this.bfsQueue[qTail++] = i;
+
+        let count = 0;
+        let minY = 1e9;
+        let sumT = 0, cx = 0, cy = 0, cz = 0, vx = 0, vy = 0, vz = 0;
+        const slotCounts = new Int16Array(NUM_SLOTS);
+
+        while (qHead < qTail) {
+          const u = this.bfsQueue[qHead++];
+          count++;
+          if (this.py[u] < minY) minY = this.py[u];
+          sumT += this.temp[u];
+          cx += this.px[u];
+          cy += this.py[u];
+          cz += this.pz[u];
+          vx += this.vx[u];
+          vy += this.vy[u];
+          vz += this.vz[u];
+          slotCounts[this.slotId[u]]++;
+
+          const ux = this.px[u], uy = this.py[u], uz = this.pz[u];
+          const ru = this.radius[u];
+          const uOff = u * 8;
+
+          for (let v = 0; v < N; v++) {
+            if (this.compId[v] !== -1) continue;
+            const dx = this.px[v] - ux;
+            const dy = this.py[v] - uy;
+            const dz = this.pz[v] - uz;
+            // Compact support radius is 2*r_u + 2*r_v = 2*(ru + rv)
+            const supp = 1.98 * (ru + this.radius[v]);
+            if (dx * dx + dy * dy + dz * dz < supp * supp) {
+              if (dot8(this.phase, uOff, this.phase, v * 8) > 0.35) {
+                this.compId[v] = cid;
+                this.bfsQueue[qTail++] = v;
+              }
+            }
+          }
+        }
+
+        const invC = 1.0 / count;
+        this.compSize[cid] = count;
+        this.compMinY[cid] = minY;
+        this.compMeanTemp[cid] = sumT * invC;
+        this.compCx[cid] = cx * invC;
+        this.compCy[cid] = cy * invC;
+        this.compCz[cid] = cz * invC;
+        this.compVx[cid] = vx * invC;
+        this.compVy[cid] = vy * invC;
+        this.compVz[cid] = vz * invC;
+
+        let bestSlot = this.slotId[i];
+        let bestCnt = -1;
+        for (let s = 0; s < NUM_SLOTS; s++) {
+          if (slotCounts[s] > bestCnt) {
+            bestCnt = slotCounts[s];
+            bestSlot = s;
+          }
+        }
+        this.compMainSlot[cid] = bestSlot;
+      }
+
+      // 2. Identify the main bottom reservoir component (lowest minY with largest size near coil)
+      let reservoirComp = 0;
+      let bestScore = -1e9;
+      for (let c = 0; c < numComps; c++) {
+        const score = (this.compMinY[c] < 1.65 ? 100.0 : 0.0) + this.compSize[c] * 2.0 - this.compMinY[c] * 5.0;
+        if (score > bestScore) {
+          bestScore = score;
+          reservoirComp = c;
+        }
+      }
+      // Keep bottom reservoir anchored on Slot 0 for clarity
+      this.compMainSlot[reservoirComp] = 0;
+
+      // 3. Detect if two disconnected components share the same slot!
+      //    Because we linked edges up to full support 1.98*(r_u + r_v), any two disconnected
+      //    components sharing a slot have ZERO field overlap right now -> re-slotting the smaller
+      //    pinched-off droplet causes 0.000000 visual change!
+      this.slotUsed.fill(0);
+      this.slotUsed[0] = 1;
+      this.slotCx[0] = this.compCx[reservoirComp];
+      this.slotCy[0] = this.compCy[reservoirComp];
+      this.slotCz[0] = this.compCz[reservoirComp];
+
+      // Sort other components largest-first so large blobs keep their existing slot
+      const order = [];
+      for (let c = 0; c < numComps; c++) {
+        if (c !== reservoirComp) order.push(c);
+      }
+      order.sort((a, b) => this.compSize[b] - this.compSize[a]);
+
+      for (let idx = 0; idx < order.length; idx++) {
+        const c = order[idx];
+        let s = this.compMainSlot[c];
+        if (this.slotUsed[s] === 0) {
+          this.slotUsed[s] = 1;
+          this.slotCx[s] = this.compCx[c];
+          this.slotCy[s] = this.compCy[c];
+          this.slotCz[s] = this.compCz[c];
+        } else {
+          // Newly pinched-off droplet! Pick a free slot (or most distant slot if >16 droplets)
+          let chosen = -1;
+          for (let cand = 1; cand < NUM_SLOTS; cand++) {
+            if (this.slotUsed[cand] === 0) {
+              chosen = cand;
+              break;
+            }
+          }
+          if (chosen === -1) {
+            let maxDistSq = -1.0;
+            chosen = 1;
+            for (let cand = 1; cand < NUM_SLOTS; cand++) {
+              const dx = this.compCx[c] - this.slotCx[cand];
+              const dy = this.compCy[c] - this.slotCy[cand];
+              const dz = this.compCz[c] - this.slotCz[cand];
+              const dSq = dx * dx + dy * dy + dz * dz;
+              if (dSq > maxDistSq) {
+                maxDistSq = dSq;
+                chosen = cand;
+              }
+            }
+          }
+          this.compMainSlot[c] = chosen;
+          this.slotUsed[chosen] = 1;
+          this.slotCx[chosen] = this.compCx[c];
+          this.slotCy[chosen] = this.compCy[c];
+          this.slotCz[chosen] = this.compCz[c];
+
+          // Verify zero overlap with any parcel currently holding `chosen`; snap immediately!
+          for (let i = 0; i < N; i++) {
+            if (this.compId[i] === c) {
+              this._assignSlot(i, chosen);
+            }
+          }
+        }
+      }
+
+      // Ensure reservoir parcels target Slot 0
+      for (let i = 0; i < N; i++) {
+        const c = this.compId[i];
+        this._setTargetSlot(i, this.compMainSlot[c]);
+      }
+
+      // 4. Surfactant Film Drainage & Coalescence between Distinct Touching Droplets
+      this.slotTouched.fill(0);
+      for (let i = 0; i < N; i++) {
+        const ci = this.compId[i];
+        const si = this.compMainSlot[ci];
+        const xi = this.px[i], yi = this.py[i], zi = this.pz[i];
+        const ri = this.radius[i];
+
+        for (let j = i + 1; j < N; j++) {
+          const cj = this.compId[j];
+          if (ci === cj) continue;
+          const sj = this.compMainSlot[cj];
+          if (si === sj) continue;
+
+          const dx = this.px[j] - xi;
+          const dy = this.py[j] - yi;
+          const dz = this.pz[j] - zi;
+          const touchDist = 1.24 * (ri + this.radius[j]);
+          if (dx * dx + dy * dy + dz * dz >= touchDist * touchDist) continue;
+
+          const lo = si < sj ? si : sj;
+          const hi = si < sj ? sj : si;
+          const pairIdx = lo * NUM_SLOTS + hi;
+          this.slotTouched[pairIdx] = 1;
+
+          const contactY = 0.5 * (yi + this.py[j]);
+          const dvx = this.compVx[ci] - this.compVx[cj];
+          const dvy = this.compVy[ci] - this.compVy[cj];
+          const dvz = this.compVz[ci] - this.compVz[cj];
+          const relSpeed = Math.sqrt(dvx * dvx + dvy * dvy + dvz * dvz);
+          const tempDiff = Math.abs(this.compMeanTemp[ci] - this.compMeanTemp[cj]);
+
+          let drainRate = 0.0;
+
+          // Case A: Heating coil surface-tension breaker at bottom!
+          // Returning cool blobs touching the bottom reservoir near the coil coalesce reliably.
+          const involvesReservoir = (ci === reservoirComp || cj === reservoirComp);
+          const otherComp = ci === reservoirComp ? cj : ci;
+          if (involvesReservoir && contactY < 1.76 && this.compVy[otherComp] < 0.05) {
+            drainRate = 2.4;
+          } else if (contactY < 1.56 && relSpeed < 0.25) {
+            drainRate = 1.8;
+          } else if (relSpeed < 0.13 && tempDiff < 0.095) {
+            // Case B: Two co-thermal blobs dwelling gently against each other (e.g. resting at top or co-rising)
+            drainRate = 0.72 * (1.0 - relSpeed / 0.13) * (1.0 - tempDiff / 0.095);
+          }
+
+          if (drainRate > 0.0) {
+            this.slotDrain[pairIdx] += drainRate * dt;
+            if (this.slotDrain[pairIdx] >= 1.0) {
+              // Film ruptures! Merge smaller component's target slot into larger (or reservoir) component's slot
+              let winnerComp = ci;
+              let loserComp = cj;
+              if (cj === reservoirComp || (ci !== reservoirComp && this.compSize[cj] > this.compSize[ci])) {
+                winnerComp = cj;
+                loserComp = ci;
+              }
+              const winSlot = this.compMainSlot[winnerComp];
+              for (let k = 0; k < N; k++) {
+                if (this.compId[k] === loserComp) {
+                  this._setTargetSlot(k, winSlot);
+                }
+              }
+              this.compMainSlot[loserComp] = winSlot;
+              this.slotDrain[pairIdx] = 0.0;
+            }
+          }
+        }
+      }
+
+      // Decay film drainage when droplets separate so glancing taps reset cleanly
+      for (let p = 0; p < NUM_SLOTS * NUM_SLOTS; p++) {
+        if (this.slotTouched[p] === 0 && this.slotDrain[p] > 0.0) {
+          this.slotDrain[p] = Math.max(0.0, this.slotDrain[p] - dt * 1.6);
+        }
+      }
+
+      // 5. Smoothly rotate each parcel's 8D unit phase vector toward its target slot!
+      //    This makes film rupture blossom smoothly from a tiny contact neck into a unified blob!
+      const rotBlend = Math.min(1.0, dt * 4.8);
+      for (let i = 0; i < N; i++) {
+        const off = i * 8;
+        let diffSq = 0.0;
+        for (let k = 0; k < 8; k++) {
+          const d = this.targetPhase[off + k] - this.phase[off + k];
+          diffSq += d * d;
+        }
+        if (diffSq > 1e-7) {
+          for (let k = 0; k < 8; k++) {
+            this.phase[off + k] += (this.targetPhase[off + k] - this.phase[off + k]) * rotBlend;
+          }
+          normalize8(this.phase, off);
+        }
+      }
+    }
+
+    // Pack into std140 UBO layout:
+    // For each parcel i (0..55):
+    //   vec4 posRad  : (px, py, pz, radius)
+    //   vec4 defTemp : (defX, defY, defZ, temp + solid*2.0 packed or separate)
+    //   vec4 phaseA  : phase[0..3]
+    //   vec4 phaseB  : phase[4..7]
+    packUBO() {
+      const buf = this.uboData;
+      for (let i = 0; i < NUM_PARCELS; i++) {
+        const base = i * 16;
+        buf[base + 0] = this.px[i];
+        buf[base + 1] = this.py[i];
+        buf[base + 2] = this.pz[i];
+        buf[base + 3] = this.radius[i];
+
+        buf[base + 4] = this.defX[i];
+        buf[base + 5] = this.defY[i];
+        buf[base + 6] = this.defZ[i];
+        // Pack temperature in integer/frac or cleanly: temp is in [0.04..0.95], solid in [0..1]
+        // Even cleaner: solid is a deterministic smooth function of temp: clamp((0.31 - T)/0.11, 0, 1)!
+        // So storing exact `this.temp[i]` in .w gives BOTH exact temp AND exact solidness in GLSL!
+        buf[base + 7] = this.temp[i];
+
+        const pOff = i * 8;
+        buf[base + 8]  = this.phase[pOff + 0];
+        buf[base + 9]  = this.phase[pOff + 1];
+        buf[base + 10] = this.phase[pOff + 2];
+        buf[base + 11] = this.phase[pOff + 3];
+
+        buf[base + 12] = this.phase[pOff + 4];
+        buf[base + 13] = this.phase[pOff + 5];
+        buf[base + 14] = this.phase[pOff + 6];
+        buf[base + 15] = this.phase[pOff + 7];
+      }
+      return buf;
+    }
+
+    // Diagnostic stats for UI readout
+    getThermometerReading() {
+      // Map liquidTemp [0.08..0.66] to realistic Celsius [21°C room temp .. 66°C overheated]
+      // At sweet spot liquidTemp = 0.50 -> ~54°C (classic lava lamp operating temp: 52-56°C!)
+      const celsius = 21.0 + (this.liquidTemp - 0.08) * (33.0 / 0.42);
+      let status = 'Off · Cooling';
+      if (this.powerOn && this.dimmer > 0.02) {
+        if (this.liquidTemp < 0.28) status = 'Warming Up · Solid';
+        else if (this.liquidTemp < 0.43) status = 'Melting · Stalagmites';
+        else if (this.dimmer < 0.72) status = 'Low · Lazy Dome';
+        else if (this.dimmer <= 1.16) status = 'Optimal Flow';
+        else status = 'Overheated · Frantic';
+      } else if (this.liquidTemp < 0.14) {
+        status = 'Off · Room Temp';
+      }
+      return { celsius: Math.round(celsius), status };
+    }
+  }
+
+  window.LavaLamp = window.LavaLamp || {};
+  window.LavaLamp.LavaPhysics = LavaPhysics;
+  window.LavaLamp.glassOuterRadius = glassOuterRadius;
+  window.LavaLamp.cavityRadius = cavityRadius;
+})();
+
+</script>
+  <script>
+// ============================================================================
+// LavaLamp WebGL 2 Shaders (GLSL ES 3.00)
+// 1. 3D Volume Builder (80x192x80 RGBA16F): 8D Orthoplex Vector-Metaballs
+// 2. Hybrid Analytical + Volume Raymarcher with Exact Analytical Hit Normals,
+//    Beer-Lambert Subsurface Scattering, Meniscus TIR, Helical Coil, Thick
+//    Borosilicate Glass Light-Piping, & Anisotropic Brushed Metal
+// 3. Multi-Mip Dual-Kawase HDR Bloom + ACES Filmic Composite + Dithering
+// ============================================================================
+
+(function () {
+  'use strict';
+
+  const FULLSCREEN_VERT = `#version 300 es
+precision highp float;
+out vec2 vUv;
+void main() {
+  vec2 pos = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
+  vUv = pos;
+  gl_Position = vec4(pos * 2.0 - 1.0, 0.0, 1.0);
+}
+`;
+
+  // Shared geometry & parcel evaluation library injected into both Volume & Scene shaders
+  const COMMON_WAX_GLSL = `
+#define NUM_PARCELS 52
+#define VOLUME_MIN vec3(-0.86, 1.24, -0.86)
+#define VOLUME_MAX vec3( 0.86, 4.70,  0.86)
+
+layout(std140) uniform ParcelBlock {
+  vec4 uParcelData[224]; // 56 * 4 vec4s: [posRad, defTemp, phaseA, phaseB]
+};
+
+vec3 safeNormalize(vec3 v) {
+  float l2 = dot(v, v);
+  return l2 > 1e-10 ? v * inversesqrt(l2) : vec3(0.0, 1.0, 0.0);
+}
+
+vec3 sanitizeHdr(vec3 c) {
+  if (any(isnan(c)) || any(isinf(c))) return vec3(0.0);
+  return clamp(c, vec3(0.0), vec3(32.0));
+}
+
+float glassOuterRadius(float y) {
+  float v = y - 1.80;
+  float dg = 0.18;
+  float sq = sqrt(v * v + dg * dg);
+  float vp = 0.5 * (sq + v - dg);
+  float vm = 0.5 * (sq - v - dg);
+  float b = max(0.0, 1.46 - y);
+  return 0.838 - 0.130 * vp - 0.195 * vm - 0.55 * b * b;
+}
+
+float glassOuterSlope(float y) {
+  float v = y - 1.80;
+  float dg = 0.18;
+  float dSq = v / sqrt(v * v + dg * dg);
+  float dvp = 0.5 * (dSq + 1.0);
+  float dvm = 0.5 * (dSq - 1.0);
+  float b = max(0.0, 1.46 - y);
+  float db = (y < 1.46) ? -1.0 : 0.0;
+  return -0.130 * dvp - 0.195 * dvm - 1.10 * b * db;
+}
+
+float cavityRadius(float y) {
+  return glassOuterRadius(y) - 0.044;
+}
+
+float meniscusHeight(float r, float cavR) {
+  float q = clamp(r / max(cavR, 1e-4), 0.0, 1.0);
+  float q2 = q * q;
+  return 4.585 + 0.025 * q2 * q2;
+}
+
+// Smooth C1 boundary containment dampener so wax cushions flat against inner glass & meniscus
+float evalCavityBoundary(vec3 p, out vec3 gradB) {
+  float r = length(p.xz);
+  float cavR = cavityRadius(p.y);
+  float slopeR = glassOuterSlope(p.y);
+  float menY = meniscusHeight(r, cavR);
+
+  float hCap = 0.062;
+
+  float dRad = cavR - 0.008 - r;
+  float dFlr = p.y - 1.286;
+  float dTop = menY - 0.010 - p.y;
+
+  float tRad = clamp(dRad / hCap, 0.0, 1.0);
+  float tFlr = clamp(dFlr / hCap, 0.0, 1.0);
+  float tTop = clamp(dTop / hCap, 0.0, 1.0);
+
+  float bRad = tRad * tRad * (3.0 - 2.0 * tRad);
+  float bFlr = tFlr * tFlr * (3.0 - 2.0 * tFlr);
+  float bTop = tTop * tTop * (3.0 - 2.0 * tTop);
+
+  float dbRad = (tRad > 0.0 && tRad < 1.0) ? (6.0 * tRad * (1.0 - tRad) / hCap) : 0.0;
+  float dbFlr = (tFlr > 0.0 && tFlr < 1.0) ? (6.0 * tFlr * (1.0 - tFlr) / hCap) : 0.0;
+  float dbTop = (tTop > 0.0 && tTop < 1.0) ? (6.0 * tTop * (1.0 - tTop) / hCap) : 0.0;
+
+  vec3 rHat = (r > 1e-5) ? vec3(p.x / r, 0.0, p.z / r) : vec3(1.0, 0.0, 0.0);
+  vec3 gRad = vec3(0.0, slopeR, 0.0) - rHat;
+  vec3 gFlr = vec3(0.0, 1.0, 0.0);
+  float q = clamp(r / max(cavR, 1e-4), 0.0, 1.0);
+  float dMenDr = 0.10 * q * q * q / max(cavR, 1e-4);
+  vec3 gTop = rHat * dMenDr - vec3(0.0, 1.0, 0.0);
+
+  gradB = (dbRad * bFlr * bTop) * gRad
+        + (bRad * dbFlr * bTop) * gFlr
+        + (bRad * bFlr * dbTop) * gTop;
+
+  return bRad * bFlr * bTop;
+}
+
+float evalCavityBoundaryFast(vec3 p) {
+  float r = length(p.xz);
+  float cavR = cavityRadius(p.y);
+  float menY = meniscusHeight(r, cavR);
+  float hCap = 0.062;
+  float bRad = smoothstep(0.0, hCap, cavR - 0.008 - r);
+  float bFlr = smoothstep(0.0, hCap, p.y - 1.286);
+  float bTop = smoothstep(0.0, hCap, menY - 0.010 - p.y);
+  return bRad * bFlr * bTop;
+}
+`;
+
+  // ==========================================================================
+  // PASS 1: 3D Scalar Volume Slice Shader (80 x 192 x 80 RGBA16F)
+  // Evaluates 8D Orthoplex Vector-Metaballs across the bottle interior.
+  // Output:
+  //   R = Bounded Wax Field Phi(x) (surface is at Phi == 1.0)
+  //   G = Weighted Wax Temperature T(x)
+  //   B = Solidification factor s(x)
+  //   A = Raw Weight Sum S0(x) (non-zero anywhere inside parcel support halos!)
+  // ==========================================================================
+  const VOLUME_FRAG = `#version 300 es
+precision highp float;
+in vec2 vUv;
+out vec4 fragColor;
+
+uniform float uSliceW; // Normalized Z coordinate [0..1] for current 3D slice
+uniform float uSimTime;
+
+${COMMON_WAX_GLSL}
+
+void main() {
+  vec3 uvw = vec3(vUv.x, vUv.y, uSliceW);
+  vec3 p = mix(VOLUME_MIN, VOLUME_MAX, uvw);
+
+  // Fast reject outside circular liquid cavity
+  float rHoriz = length(p.xz);
+  float cavR = cavityRadius(p.y);
+  if (rHoriz > cavR + 0.02 || p.y < 1.26 || p.y > 4.65) {
+    fragColor = vec4(0.0, 0.45, 0.0, 0.0);
+    return;
+  }
+
+  float bWall = evalCavityBoundaryFast(p);
+  if (bWall <= 1e-5) {
+    fragColor = vec4(0.0, 0.45, 0.0, 0.0);
+    return;
+  }
+
+  float S0 = 0.0;
+  vec4 Va = vec4(0.0);
+  vec4 Vb = vec4(0.0);
+  float weightedTemp = 0.0;
+
+  for (int i = 0; i < NUM_PARCELS; i++) {
+    int base = i * 4;
+    vec4 posRad = uParcelData[base];
+    vec3 d = p - posRad.xyz;
+    float R = 2.0 * posRad.w; // Compact support = 2 * radius
+    // Quick bounding box / sphere reject before deformation math
+    float maxR = R * 1.28;
+    float rawDSq = dot(d, d);
+    if (rawDSq >= maxR * maxR) continue;
+
+    vec4 defTemp = uParcelData[base + 1];
+    vec3 def = defTemp.xyz;
+    float e = length(def);
+    vec3 dTilde = d;
+    if (e > 1e-4) {
+      vec3 axis = def / e;
+      // Volume-preserving stretch/squash
+      float lamPar = 1.0 / (1.0 + e);
+      float lamPerp = sqrt(1.0 + e);
+      dTilde = lamPerp * d + (lamPar - lamPerp) * dot(d, axis) * axis;
+    }
+
+    float qSq = dot(dTilde, dTilde) / (R * R);
+    if (qSq >= 1.0) continue;
+
+    float omq = 1.0 - qSq;
+    float w = (64.0 / 27.0) * omq * omq * omq;
+
+    S0 += w;
+    Va += w * uParcelData[base + 2];
+    Vb += w * uParcelData[base + 3];
+    weightedTemp += w * defTemp.w;
+  }
+
+  if (S0 <= 1e-5) {
+    fragColor = vec4(0.0, 0.45, 0.0, 0.0);
+    return;
+  }
+
+  float S1 = sqrt(dot(Va, Va) + dot(Vb, Vb) + 1e-8) - 1e-4;
+  float m = max(0.0, S0 - S1);
+  float m2 = m * m;
+  float penalty = (4.2 * m2 * m) / (0.08 + m2);
+  float phi = max(0.0, (S1 - penalty) * bWall);
+  float temp = weightedTemp / S0;
+  float solid = clamp((0.31 - temp) / 0.11, 0.0, 1.0);
+
+  fragColor = vec4(phi, temp, solid, S0);
+}
+`;
+
+  // ==========================================================================
+  // PASS 2: Main Full-Physics Photorealistic Raytracing & Volume Shader
+  // ==========================================================================
+  const SCENE_FRAG = `#version 300 es
+precision highp float;
+precision highp sampler3D;
+
+in vec2 vUv;
+out vec4 fragColor;
+
+uniform sampler3D uWaxVolume;
+uniform vec2 uResolution;
+uniform vec3 uCamPos;
+uniform mat3 uCamMat;
+uniform float uFovScale;
+uniform vec2 uLensShift;
+uniform float uTime;
+
+// Lamp & Optical Parameters
+uniform float uBulbGlow;      // [0 .. 1.4]
+uniform float uLiquidTemp;    // [0.08 .. 0.70]
+uniform vec3 uWaxColor;       // Linear sRGB wax base color
+uniform vec3 uLiquidColor;    // Linear sRGB carrier fluid dye tint
+uniform float uLiquidClarity; // Dye density [0 .. 1]
+uniform int uMetalType;       // 0=Silver, 1=Brass, 2=MatteBlack, 3=Copper
+uniform float uRoomLight;     // Ambient studio brightness [0.05 .. 1.0]
+
+${COMMON_WAX_GLSL}
+
+// Sample precomputed 3D wax field (explicit LOD 0 avoids D3D11 FXC gradient-in-loop link errors!)
+vec4 sampleWaxGrid(vec3 p) {
+  vec3 uvw = (p - VOLUME_MIN) / (VOLUME_MAX - VOLUME_MIN);
+  if (any(lessThan(uvw, vec3(0.0))) || any(greaterThan(uvw, vec3(1.0)))) {
+    return vec4(0.0, 0.45, 0.0, 0.0);
+  }
+  return textureLod(uWaxVolume, uvw, 0.0);
+}
+
+// Exact analytical evaluation + exact analytical gradient ONLY at the single hit point!
+// Eliminates 100% of voxel grid artifacts for infinite-resolution glossy normals!
+float evalWaxExact(vec3 p, out vec3 outNormal, out float outTemp, out float outSolid) {
+  vec3 gradB;
+  float bWall = evalCavityBoundary(p, gradB);
+  if (bWall <= 1e-6) {
+    outNormal = vec3(0.0, 1.0, 0.0);
+    outTemp = 0.5;
+    outSolid = 0.0;
+    return 0.0;
+  }
+
+  float S0 = 0.0;
+  vec3 dS0 = vec3(0.0);
+  vec4 Va = vec4(0.0);
+  vec4 Vb = vec4(0.0);
+
+  vec4 dVa_x = vec4(0.0), dVa_y = vec4(0.0), dVa_z = vec4(0.0);
+  vec4 dVb_x = vec4(0.0), dVb_y = vec4(0.0), dVb_z = vec4(0.0);
+
+  float weightedTemp = 0.0;
+
+  for (int i = 0; i < NUM_PARCELS; i++) {
+    int base = i * 4;
+    vec4 posRad = uParcelData[base];
+    vec3 d = p - posRad.xyz;
+    float R = 2.0 * posRad.w;
+    float maxR = R * 1.28;
+    if (dot(d, d) >= maxR * maxR) continue;
+
+    vec4 defTemp = uParcelData[base + 1];
+    vec3 def = defTemp.xyz;
+    float e = length(def);
+
+    vec3 dTilde = d;
+    float lamPar = 1.0;
+    float lamPerp = 1.0;
+    vec3 axis = vec3(0.0, 1.0, 0.0);
+
+    if (e > 1e-4) {
+      axis = def / e;
+      lamPar = 1.0 / (1.0 + e);
+      lamPerp = sqrt(1.0 + e);
+      dTilde = lamPerp * d + (lamPar - lamPerp) * dot(d, axis) * axis;
+    }
+
+    float invRSq = 1.0 / (R * R);
+    float qSq = dot(dTilde, dTilde) * invRSq;
+    if (qSq >= 1.0) continue;
+
+    float omq = 1.0 - qSq;
+    float omq2 = omq * omq;
+    float w = (64.0 / 27.0) * omq2 * omq;
+
+    // Exact analytical gradient of w_i(x) including symmetric stretch operator M_i^T
+    vec3 mTd = (e > 1e-4)
+      ? (lamPerp * dTilde + (lamPar - lamPerp) * dot(dTilde, axis) * axis)
+      : dTilde;
+    vec3 gw = (-128.0 / 9.0 * invRSq * omq2) * mTd;
+
+    vec4 uA = uParcelData[base + 2];
+    vec4 uB = uParcelData[base + 3];
+
+    S0 += w;
+    dS0 += gw;
+    Va += w * uA;
+    Vb += w * uB;
+
+    dVa_x += gw.x * uA; dVa_y += gw.y * uA; dVa_z += gw.z * uA;
+    dVb_x += gw.x * uB; dVb_y += gw.y * uB; dVb_z += gw.z * uB;
+
+    weightedTemp += w * defTemp.w;
+  }
+
+  if (S0 <= 1e-6) {
+    outNormal = vec3(0.0, 1.0, 0.0);
+    outTemp = 0.5;
+    outSolid = 0.0;
+    return 0.0;
+  }
+
+  float lenSq = dot(Va, Va) + dot(Vb, Vb) + 1e-8;
+  float invLen = inversesqrt(lenSq);
+  float S1 = (1.0 / invLen) - 1e-4;
+
+  vec3 dS1 = invLen * vec3(
+    dot(Va, dVa_x) + dot(Vb, dVb_x),
+    dot(Va, dVa_y) + dot(Vb, dVb_y),
+    dot(Va, dVa_z) + dot(Vb, dVb_z)
+  );
+
+  float m = max(0.0, S0 - S1);
+  float m2 = m * m;
+  float c = 0.08;
+  float denomM = c + m2;
+  float penalty = (4.2 * m2 * m) / denomM;
+  float dPm = (4.2 * m2 * (3.0 * c + m2)) / (denomM * denomM);
+
+  float rawPhi = S1 - penalty;
+  vec3 gradRawPhi = (1.0 + dPm) * dS1 - dPm * dS0;
+
+  float phi = rawPhi * bWall;
+  vec3 gradPhi = bWall * gradRawPhi + rawPhi * gradB;
+
+  outTemp = weightedTemp / S0;
+  outSolid = clamp((0.31 - outTemp) / 0.11, 0.0, 1.0);
+
+  // Subtle waxy micro-crystalline bump when cold & solidified!
+  if (outSolid > 0.02) {
+    vec3 sp = p * 22.0;
+    vec3 micro = vec3(
+      sin(sp.x) * cos(sp.y * 1.3 + sp.z),
+      cos(sp.y) * sin(sp.z * 1.2 + sp.x),
+      sin(sp.z) * cos(sp.x * 1.1 + sp.y)
+    );
+    gradPhi += micro * (0.045 * outSolid);
+  }
+
+  outNormal = safeNormalize(-gradPhi);
+  return phi;
+}
+
+// Exact scalar evaluation only (faster for secant root polish)
+float evalWaxScalarExact(vec3 p) {
+  float bWall = evalCavityBoundaryFast(p);
+  if (bWall <= 1e-6) return 0.0;
+  float S0 = 0.0;
+  vec4 Va = vec4(0.0);
+  vec4 Vb = vec4(0.0);
+  for (int i = 0; i < NUM_PARCELS; i++) {
+    int base = i * 4;
+    vec4 posRad = uParcelData[base];
+    vec3 d = p - posRad.xyz;
+    float R = 2.0 * posRad.w;
+    float maxR = R * 1.28;
+    if (dot(d, d) >= maxR * maxR) continue;
+    vec4 defTemp = uParcelData[base + 1];
+    vec3 def = defTemp.xyz;
+    float e = length(def);
+    vec3 dTilde = d;
+    if (e > 1e-4) {
+      vec3 axis = def / e;
+      float lamPar = 1.0 / (1.0 + e);
+      float lamPerp = sqrt(1.0 + e);
+      dTilde = lamPerp * d + (lamPar - lamPerp) * dot(d, axis) * axis;
+    }
+    float qSq = dot(dTilde, dTilde) / (R * R);
+    if (qSq >= 1.0) continue;
+    float omq = 1.0 - qSq;
+    float w = (64.0 / 27.0) * omq * omq * omq;
+    S0 += w;
+    Va += w * uParcelData[base + 2];
+    Vb += w * uParcelData[base + 3];
+  }
+  if (S0 <= 1e-6) return 0.0;
+  float S1 = sqrt(dot(Va, Va) + dot(Vb, Vb) + 1e-8) - 1e-4;
+  float m = max(0.0, S0 - S1);
+  float m2 = m * m;
+  float penalty = (4.2 * m2 * m) / (0.08 + m2);
+  return (S1 - penalty) * bWall;
+}
+
+// ============================================================================
+// Rigid Hardware SDFs: Spun Metal Base, Hollow Collar, Top Cap, Glass, & Coil
+// ============================================================================
+
+float baseOuterRadius(float y) {
+  float u = y - 1.00;
+  float d = 0.08;
+  float sq = sqrt(u * u + d * d);
+  float up = 0.5 * (sq + u - d);
+  float um = 0.5 * (sq - u - d);
+  return 0.425 + 0.470 * um + 0.710 * up;
+}
+
+float sdBox2D(vec2 p, vec2 b) {
+  vec2 d = abs(p) - b;
+  return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
+}
+
+// Metal Base: solid lower cone [0..1.21] + thin flared collar cup [1.19..1.565]
+float sdMetalBase(vec3 p) {
+  float r = length(p.xz);
+  float rb = baseOuterRadius(clamp(p.y, 0.0, 1.57));
+
+  // Lower enclosed housing [0.0 .. 1.21]
+  float dRadLow = (r - rb) * 0.80;
+  float dLow = max(dRadLow, max(-p.y, p.y - 1.21));
+  // Subtle rubber base foot groove at y = 0.025
+  float foot = sdBox2D(vec2(r - 0.43, p.y - 0.015), vec2(0.435, 0.015)) - 0.006;
+  dLow = min(dLow, foot);
+
+  // Upper flared cup shell [1.18 .. 1.565]
+  float shellWall = abs(r - rb) * 0.80 - 0.013;
+  float dCup = max(shellWall, max(1.18 - p.y, p.y - 1.565));
+  // Smooth rolled metal lip at y = 1.565
+  float lip = length(vec2(r - baseOuterRadius(1.565), p.y - 1.565)) - 0.015;
+  dCup = min(dCup, lip);
+
+  return min(dLow, dCup);
+}
+
+// Metal Top Cap [4.60 .. 5.41]: solid spun-metal cone with C1 rounded top & bottom rims
+float sdMetalCap(vec3 p) {
+  float r = length(p.xz);
+  float yc = clamp(p.y, 4.60, 5.41);
+  float rc = 0.502 - 0.192 * (yc - 4.60);
+
+  vec2 dTop = vec2((r - (rc - 0.018)) * 0.94, p.y - (5.41 - 0.018));
+  float body = max(4.605 - p.y, length(max(dTop, 0.0)) + min(max(dTop.x, dTop.y), 0.0) - 0.018);
+  float rim = length(vec2(r - (0.502 - 0.008), p.y - 4.605)) - 0.009;
+  return min(body, rim);
+}
+
+float sdMetalHardware(vec3 p, out int partId) {
+  float dBase = sdMetalBase(p);
+  float dCap = sdMetalCap(p);
+  if (dBase < dCap) {
+    partId = 1; // Base
+    return dBase;
+  }
+  partId = 2; // Cap
+  return dCap;
+}
+
+vec3 calcMetalNormal(vec3 p) {
+  const float e = 0.0012;
+  int dummy;
+  vec2 k = vec2(1.0, -1.0);
+  return normalize(
+    k.xyy * sdMetalHardware(p + k.xyy * e, dummy) +
+    k.yyx * sdMetalHardware(p + k.yyx * e, dummy) +
+    k.yxy * sdMetalHardware(p + k.yxy * e, dummy) +
+    k.xxx * sdMetalHardware(p + k.xxx * e, dummy)
+  );
+}
+
+// Outer Borosilicate Glass Bottle [1.23 .. 4.615] (nests cleanly inside metal cap at y >= 4.60)
+float sdGlassOuter(vec3 p) {
+  float r = length(p.xz);
+  float yg = clamp(p.y, 1.23, 4.615);
+  float rg = glassOuterRadius(yg);
+  float dSide = (r - rg) * 0.86;
+  return max(dSide, max(1.23 - p.y, p.y - 4.615));
+}
+
+vec3 calcGlassOuterNormal(vec3 p) {
+  float r = max(length(p.xz), 1e-5);
+  float slope = glassOuterSlope(p.y);
+  return normalize(vec3(p.x / r, -slope, p.z / r));
+}
+
+// Inner Liquid Cavity [1.28 .. 4.62]
+float sdLiquidCavity(vec3 p) {
+  float r = length(p.xz);
+  float yc = clamp(p.y, 1.28, 4.64);
+  float rc = cavityRadius(yc);
+  float menY = meniscusHeight(r, rc);
+  float dSide = (r - rc) * 0.86;
+  return max(dSide, max(1.28 - p.y, p.y - menY));
+}
+
+// 32-Turn Helical Stainless Steel Heating Coil nestled in bottom groove (y ~ 1.32)
+float sdHeatingCoil(vec3 p) {
+  float r = length(p.xz);
+  vec2 pol = vec2(r - 0.415, p.y - 1.320);
+  float dTorus = length(pol);
+  if (dTorus > 0.065) return dTorus - 0.042;
+
+  float theta = atan(p.z, p.x);
+  float turns = 32.0;
+  float phi = theta * turns;
+  vec2 wireCenter = 0.030 * vec2(cos(phi), sin(phi));
+  // Foreshortening factor for helical pitch
+  return length(pol - wireCenter) * 0.36 - 0.0092;
+}
+
+vec3 calcCoilNormal(vec3 p) {
+  const float e = 0.0008;
+  vec2 k = vec2(1.0, -1.0);
+  return normalize(
+    k.xyy * sdHeatingCoil(p + k.xyy * e) +
+    k.yyx * sdHeatingCoil(p + k.yyx * e) +
+    k.yxy * sdHeatingCoil(p + k.yxy * e) +
+    k.xxx * sdHeatingCoil(p + k.xxx * e)
+  );
+}
+
+// ============================================================================
+// Procedural Studio / Cozy Dark Room Environment & Reflections
+// ============================================================================
+vec3 sampleRoomEnv(vec3 dir, float roughness) {
+  float y = clamp(dir.y, -1.0, 1.0);
+  // Cozy dark architectural space
+  vec3 zenith = vec3(0.028, 0.032, 0.048) * uRoomLight;
+  vec3 horizon = vec3(0.055, 0.050, 0.062) * uRoomLight;
+  vec3 floorCol = vec3(0.020, 0.017, 0.016) * uRoomLight;
+
+  vec3 base = (y >= 0.0)
+    ? mix(horizon, zenith, pow(max(1e-5, y), 0.55))
+    : mix(horizon * 0.65, floorCol, pow(max(1e-5, -y), 0.5));
+
+  // Crisp studio softbox / tall window strip reflections (iconic vertical highlights on glass!)
+  float az = atan(dir.x, dir.z); // [-pi, pi]
+  float blur = mix(0.025, 0.45, roughness);
+
+  // Primary cool-neutral tall softbox at Left-Front (~ -0.82 rad)
+  float strip1 = smoothstep(0.18 + blur, 0.02, abs(az + 0.82))
+               * smoothstep(-0.25 - blur, 0.05, y)
+               * smoothstep(0.82 + blur, 0.45, y);
+
+  // Secondary narrower warm rim softbox at Right (~ +1.18 rad)
+  float strip2 = smoothstep(0.11 + blur, 0.015, abs(az - 1.18))
+               * smoothstep(-0.20 - blur, 0.08, y)
+               * smoothstep(0.75 + blur, 0.40, y);
+
+  // Overhead subtle fill diffuser
+  float topLight = smoothstep(0.72 - blur * 0.5, 0.96, y);
+
+  float specBoost = mix(1.0, 0.22, roughness);
+  base += vec3(0.92, 0.95, 1.05) * strip1 * (0.35 + 1.35 * uRoomLight) * specBoost;
+  base += vec3(1.10, 0.90, 0.72) * strip2 * (0.28 + 1.05 * uRoomLight) * specBoost;
+  base += vec3(0.55, 0.58, 0.68) * topLight * (0.15 + 0.65 * uRoomLight) * specBoost;
+
+  return base;
+}
+
+// Background behind lamp + tabletop surface at y = 0
+vec3 renderBackdropAndTable(vec3 ro, vec3 rd) {
+  // Subtle warm atmospheric room wall glow behind the lamp
+  vec3 bg = sampleRoomEnv(rd, 0.85) * 0.65;
+
+  // Approximate radial glow on room backdrop behind lamp
+  // Closest point on ray to lamp center (0, 2.75, 0)
+  vec3 lampCenter = vec3(0.0, 2.75, 0.0);
+  float tClosest = max(0.0, dot(lampCenter - ro, rd));
+  vec3 pClose = ro + rd * tClosest;
+  vec2 dLamp = vec2(length(pClose.xz), (pClose.y - 2.65) * 0.48);
+  float aura = exp(-dot(dLamp, dLamp) * 0.55);
+  vec3 glowHue = mix(uWaxColor, vec3(1.0, 0.55, 0.18), 0.35);
+  bg += glowHue * aura * (0.14 * uBulbGlow);
+
+  // Intersect tabletop plane at y = 0.0
+  if (rd.y < -1e-4 && ro.y > 0.0) {
+    float tTable = -ro.y / rd.y;
+    if (tTable > 0.0 && tTable < 32.0) {
+      vec3 pt = ro + rd * tTable;
+      float r = length(pt.xz);
+
+      // Dark satin walnut / slate tabletop with micro-grain
+      float grain = sin(pt.x * 18.0 + sin(pt.z * 4.5) * 1.5) * 0.5 + 0.5;
+      vec3 albedo = mix(vec3(0.032, 0.025, 0.022), vec3(0.046, 0.036, 0.031), grain * 0.45);
+
+      // Contact ambient occlusion directly beneath the metal base (radius 0.877)
+      float ao = smoothstep(0.83, 1.08, r);
+
+      // Downward colored caustic / glow spill from the illuminated glass globe above!
+      // Blocked right next to the opaque base cone (r < 0.92), peaking in a warm halo ring r ~ 1.15..3.2!
+      float baseShadow = smoothstep(0.88, 1.32, r);
+      float invFalloff = 1.0 / (1.0 + 0.38 * r * r);
+      vec3 lampSpill = mix(uWaxColor, uLiquidColor + vec3(1.0, 0.58, 0.22) * 0.5, 0.38)
+                     * (0.85 * uBulbGlow * baseShadow * invFalloff);
+      // Subtle warm light leak right at the rubber foot gap r ~ 0.88..0.96
+      float seamLeak = exp(-pow((r - 0.90) / 0.06, 2.0)) * 0.18 * uBulbGlow;
+
+      // Blurred glossy tabletop reflection of the glowing lamp column!
+      vec3 reflDir = reflect(rd, vec3(0.0, 1.0, 0.0));
+      vec3 tableRefl = sampleRoomEnv(reflDir, 0.35) * 0.35;
+      // Analytical reflection of the glowing lamp column along reflDir
+      float denom = dot(reflDir.xz, reflDir.xz);
+      if (denom > 1e-4) {
+        float tAxis = -dot(pt.xz, reflDir.xz) / denom;
+        if (tAxis > 0.0) {
+          vec3 pRefl = pt + reflDir * tAxis;
+          if (pRefl.y > 1.45 && pRefl.y < 4.70) {
+            float dAxis = length(pRefl.xz);
+            float colMask = exp(-dAxis * dAxis / 0.26) * smoothstep(1.45, 1.85, pRefl.y) * smoothstep(4.70, 4.10, pRefl.y);
+            // Sample wax volume coarsely at reflected height for real dynamic blob reflection on the desk!
+            vec4 vSample = sampleWaxGrid(vec3(0.0, pRefl.y, 0.0));
+            vec3 colEmit = mix(uLiquidColor * 0.25, uWaxColor * 1.4 + vec3(0.9, 0.45, 0.1) * 0.5, clamp(vSample.r, 0.25, 1.0));
+            tableRefl += colEmit * colMask * uBulbGlow * 0.55;
+          }
+        }
+      }
+
+      float fresnel = 0.04 + 0.45 * pow(1.0 - max(0.0, -rd.y), 5.0);
+      vec3 surf = albedo * (vec3(0.16 * uRoomLight) + lampSpill + vec3(1.0, 0.55, 0.2) * seamLeak) * ao
+                + tableRefl * fresnel * ao;
+
+      // Smooth distance fog into dark room horizon
+      float fog = exp(-0.085 * max(0.0, tTable - 3.5));
+      return mix(bg, surf, fog);
+    }
+  }
+
+  return bg;
+}
+
+// ============================================================================
+// Brushed Anisotropic Spun Metal Shading (Base & Cap)
+// ============================================================================
+void getMetalMaterial(int type, out vec3 f0, out float baseRough) {
+  if (type == 1) {
+    // Warm Brushed Brass / Mid-century Gold
+    f0 = vec3(0.94, 0.74, 0.36);
+    baseRough = 0.24;
+  } else if (type == 2) {
+    // Sleek Anodized Matte Black
+    f0 = vec3(0.065, 0.068, 0.075);
+    baseRough = 0.38;
+  } else if (type == 3) {
+    // Brushed Rose Copper
+    f0 = vec3(0.93, 0.56, 0.44);
+    baseRough = 0.25;
+  } else {
+    // Classic Astro Spun Brushed Aluminum / Silver
+    f0 = vec3(0.84, 0.86, 0.89);
+    baseRough = 0.23;
+  }
+}
+
+vec3 shadeBrushedMetal(vec3 p, vec3 n, vec3 rd, int partId) {
+  vec3 f0;
+  float rough;
+  getMetalMaterial(uMetalType, f0, rough);
+
+  // Circumferential lathe brush micro-grooves along Y
+  float groove = sin(p.y * 280.0) * 0.5 + sin(p.y * 670.0 + 1.3) * 0.5;
+  vec3 nBrushed = normalize(n + vec3(0.0, groove * 0.022, 0.0));
+
+  vec3 v = -rd;
+  float ndotv = max(0.001, dot(nBrushed, v));
+  vec3 refl = reflect(rd, nBrushed);
+
+  // Anisotropic circumferential brushing spreads azimuthal reflections into wide silky metallic bands!
+  vec3 envCenter = sampleRoomEnv(refl, max(0.48, rough * 1.9));
+  float horizLenSq = n.x * n.x + n.z * n.z;
+  vec3 tangent = (horizLenSq > 1e-6) ? (vec3(-n.z, 0.0, n.x) * inversesqrt(horizLenSq)) : vec3(1.0, 0.0, 0.0);
+  vec3 radHoriz = (horizLenSq > 1e-6) ? (vec3(n.x, 0.0, n.z) * inversesqrt(horizLenSq)) : vec3(0.0, 0.0, 1.0);
+  vec3 envLeft  = sampleRoomEnv(safeNormalize(refl + tangent * 0.52), 0.58);
+  vec3 envRight = sampleRoomEnv(safeNormalize(refl - tangent * 0.52), 0.58);
+  vec3 envSpec = envCenter * 0.44 + (envLeft + envRight) * 0.28;
+
+  // Ambient studio metallic sky/room wrap so silver/brass looks like real satin metal, never black plastic
+  float hemi = 0.55 + 0.45 * nBrushed.y;
+  float sideKey = 0.5 + 0.5 * dot(radHoriz, vec3(-0.65, 0.0, 0.76));
+  vec3 satinAmbient = vec3(0.24, 0.25, 0.28) * uRoomLight * hemi * (0.65 + 0.75 * sideKey);
+
+  vec3 fresnel = f0 + (1.0 - f0) * pow(1.0 - ndotv, 5.0);
+  vec3 color = (envSpec + satinAmbient) * fresnel * (1.0 + groove * 0.035);
+
+  if (uMetalType == 2) {
+    // Matte black anodized diffuse component
+    color += vec3(0.028, 0.030, 0.035) * (0.35 + 0.65 * max(0.0, n.y)) * uRoomLight;
+  }
+
+  // Dynamic bounce light from the glowing wax right next to the metal collar (y~1.56) or cap rim (y~4.60)!
+  if (partId == 1) {
+    float collarNear = exp(-max(0.0, 1.565 - p.y) * 6.5) * max(0.0, n.y * 0.6 + 0.4);
+    float r = length(p.xz);
+    bool insideCup = (p.y > 1.20 && r < baseOuterRadius(p.y) - 0.002);
+    if (insideCup) {
+      float depthFade = smoothstep(1.565, 1.32, p.y);
+      color += mix(uWaxColor, vec3(1.0, 0.68, 0.32), 0.45) * f0 * depthFade * uBulbGlow * 0.65;
+    } else {
+      vec3 rimGlow = mix(uWaxColor, vec3(1.0, 0.62, 0.28), 0.42);
+      color += rimGlow * f0 * collarNear * uBulbGlow * 0.42;
+    }
+  } else {
+    // Top cap lower rim catches glow from blobs hovering near the top!
+    float capRim = exp(-max(0.0, p.y - 4.60) * 9.0) * max(0.0, -n.y * 0.7 + 0.3);
+    vec4 topWax = sampleWaxGrid(vec3(0.0, 4.35, 0.0));
+    float topPresence = 0.20 + 0.80 * clamp(topWax.r, 0.0, 1.0);
+    color += mix(uWaxColor, uLiquidColor + 0.2, 0.25) * f0 * capRim * uBulbGlow * topPresence * 0.42;
+  }
+
+  // Tabletop upward bounce on lower base cone
+  if (p.y < 1.05 && n.y < 0.0) {
+    color += uWaxColor * f0 * (-n.y) * 0.08 * uBulbGlow;
+  }
+
+  return color;
+}
+
+// ============================================================================
+// Subsurface Scattering & Shading of Molten / Solidified Paraffin Wax
+// ============================================================================
+vec3 computeWaxExtinction(vec3 baseCol) {
+  // Derive physically-plausible chromatic absorption spectrum from user's wax color!
+  // Bright channels absorb weakly (transmit deep!), dark channels absorb strongly!
+  // This produces true chromatic shift: red wax glows golden-yellow where thin/hot, deep ruby where thick/cool!
+  vec3 clamped = clamp(baseCol, vec3(0.03), vec3(0.98));
+  return -log(clamped) * 3.2 + vec3(0.22);
+}
+
+vec3 shadeWaxSurface(vec3 p, vec3 n, vec3 rd, float temp, float solid) {
+  vec3 bulbPos = vec3(0.0, 1.14, 0.0);
+  vec3 toBulb = bulbPos - p;
+  float distBulb = length(toBulb);
+  vec3 lBulb = toBulb / max(distBulb, 1e-4);
+
+  // 1. March optical thickness through uWaxVolume toward the bottom halogen bulb!
+  float bulbWaxDepth = 0.0;
+  const int SSS_STEPS = 6;
+  float stepLen = min(distBulb, 1.15) / float(SSS_STEPS);
+  for (int i = 1; i <= SSS_STEPS; i++) {
+    vec3 sp = p + lBulb * (stepLen * (float(i) - 0.35));
+    vec4 sv = sampleWaxGrid(sp);
+    bulbWaxDepth += clamp(sv.r, 0.0, 1.6) * stepLen;
+  }
+
+  // 2. March forward along view ray rd to measure thin-neck / silhouette edge translucency!
+  float viewWaxDepth = 0.0;
+  for (int i = 1; i <= 4; i++) {
+    vec3 sp = p + rd * (0.075 * float(i));
+    vec4 sv = sampleWaxGrid(sp);
+    viewWaxDepth += clamp(sv.r, 0.0, 1.5) * 0.075;
+  }
+  float thinness = exp(-viewWaxDepth * 3.2);
+
+  // Cold solidified wax is cloudier/denser (higher scattering extinction); hot wax is clearer & luminous!
+  float densityMult = mix(0.92, 2.35, solid) * mix(1.22, 0.82, clamp((temp - 0.35) / 0.35, 0.0, 1.0));
+  vec3 sigmaWax = computeWaxExtinction(uWaxColor) * densityMult;
+
+  // Chromatic subsurface scattering albedo: even thin/bottom-lit wax carries rich pigment (golden-orange core, never chalky white!)
+  vec3 waxTintCore = pow(clamp(uWaxColor, vec3(0.02), vec3(1.0)), vec3(0.52));
+
+  // Halogen 2900K warm incandescent light spectrum + inverse-square spotlight falloff
+  float spotCone = mix(0.42, 1.0, pow(max(0.0, -lBulb.y), 1.5));
+  float atten = spotCone / (0.34 + 0.48 * distBulb * distBulb);
+  vec3 bulbIrradiance = vec3(1.32, 0.86, 0.44) * waxTintCore * (uBulbGlow * 4.2 * atten);
+
+  // Minimum internal scattering path (0.16) ensures pigment absorption even on the bottom dome!
+  float wrapBulb = max(0.0, dot(n, lBulb) * 0.52 + 0.48);
+  vec3 transmitted = bulbIrradiance * exp(-sigmaWax * (bulbWaxDepth * 1.45 + 0.16)) * (0.42 + 0.68 * wrapBulb);
+
+  // Forward-scattered fiery rim/neck glow when thin necks stretch over the light!
+  vec3 neckGlow = bulbIrradiance * exp(-sigmaWax * (bulbWaxDepth * 0.90 + 0.10)) * thinness * 0.48;
+
+  // Deep internal ambient multiple-scattering core (warm turbid wax scatter)
+  float heightGlow = exp(-max(0.0, p.y - 1.30) * 0.58);
+  vec3 multiScatter = uWaxColor * vec3(1.18, 0.85, 0.62) * (uBulbGlow * (0.26 + 0.72 * heightGlow))
+                    * mix(1.0, 0.52, solid);
+
+  // Subtle internal convective density swirl (very delicate, organic!)
+  float swirl = sin(p.x * 9.0 + p.y * 5.0 - uTime * 0.35) * cos(p.z * 9.0 - p.y * 4.0 + uTime * 0.25);
+  transmitted *= (1.0 + 0.045 * swirl * (1.0 - solid));
+
+  // External studio lighting + waxy subsurface wrap
+  vec3 v = -rd;
+  float ndotv = max(0.001, dot(n, v));
+  float waxRough = mix(0.14, 0.52, solid); // Molten wax is silky smooth; cold solid wax is matte-waxy!
+
+  vec3 roomDiff = sampleRoomEnv(n, 0.9) * uWaxColor * (0.55 + 0.35 * solid);
+  // Relative IOR between wax (1.45) and carrier liquid (1.36) is ~1.066 -> delicate silky Fresnel!
+  float f0Wax = 0.004 + 0.018 * solid;
+  float fresWax = f0Wax + (0.22 - f0Wax) * pow(1.0 - ndotv, 4.0);
+  vec3 reflDir = reflect(rd, n);
+  vec3 waxSpec = sampleRoomEnv(reflDir, waxRough) * fresWax;
+  // Also specular glint of the bottom bulb on the underside of rising droplets!
+  vec3 hBulb = safeNormalize(lBulb + v);
+  float specPow = mix(48.0, 10.0, solid);
+  float bulbGlint = pow(max(1e-5, dot(n, hBulb)), specPow) * max(0.0, dot(n, lBulb));
+  waxSpec += vec3(1.2, 0.85, 0.55) * bulbGlint * atten * uBulbGlow * mix(0.35, 0.08, solid);
+
+  return transmitted + neckGlow + multiScatter + roomDiff + waxSpec;
+}
+
+// Shade the stainless steel heating coil at the bottom of the bottle
+vec3 shadeCoil(vec3 p, vec3 n, vec3 rd) {
+  vec3 bulbPos = vec3(0.0, 1.16, 0.0);
+  vec3 lBulb = normalize(bulbPos - p);
+  vec3 v = -rd;
+  vec3 refl = reflect(rd, n);
+
+  vec3 steelF0 = vec3(0.72, 0.74, 0.77);
+  float ndotv = max(0.01, dot(n, v));
+  vec3 fres = steelF0 + (1.0 - steelF0) * pow(1.0 - ndotv, 5.0);
+
+  vec3 env = sampleRoomEnv(refl, 0.22);
+  vec3 h = normalize(lBulb + v);
+  float spec = pow(max(0.0, dot(n, h)), 64.0);
+  float diff = max(0.0, dot(n, lBulb)) * 0.5 + 0.5;
+
+  vec3 bulbCol = vec3(1.35, 0.92, 0.52) * uBulbGlow;
+  return env * fres + steelF0 * bulbCol * (diff * 1.4 + spec * 3.5) + uWaxColor * steelF0 * uBulbGlow * 0.45;
+}
+
+// ============================================================================
+// Ray-Bounding Cylinder Pre-Check (Lamp fits inside r <= 0.91, y in [0, 5.44])
+// ============================================================================
+bool intersectLampBounds(vec3 ro, vec3 rd, out float tMin, out float tMax) {
+  const float R = 0.91;
+  float a = dot(rd.xz, rd.xz);
+  float b = dot(ro.xz, rd.xz);
+  float c = dot(ro.xz, ro.xz) - R * R;
+
+  tMin = 0.0;
+  tMax = 100.0;
+
+  if (a > 1e-7) {
+    float disc = b * b - a * c;
+    if (disc < 0.0) return false;
+    float sq = sqrt(disc);
+    float t0 = (-b - sq) / a;
+    float t1 = (-b + sq) / a;
+    tMin = max(tMin, t0);
+    tMax = min(tMax, t1);
+  } else if (c > 0.0) {
+    return false;
+  }
+
+  if (abs(rd.y) > 1e-7) {
+    float ty0 = (-0.02 - ro.y) / rd.y;
+    float ty1 = ( 5.45 - ro.y) / rd.y;
+    tMin = max(tMin, min(ty0, ty1));
+    tMax = min(tMax, max(ty0, ty1));
+  } else if (ro.y < -0.02 || ro.y > 5.45) {
+    return false;
+  }
+
+  return tMax > tMin && tMax > 0.0;
+}
+
+// ============================================================================
+// Trace Liquid Cavity Interior (Wax + Volumetric Bulb Shafts + Coil + Meniscus TIR)
+// ============================================================================
+vec3 traceLiquidInterior(vec3 cavRo, vec3 cavRd, float maxDist, float pixelHash) {
+  // Beer-Lambert liquid dye absorption coefficient
+  vec3 clampedLiq = clamp(uLiquidColor, vec3(0.05), vec3(0.995));
+  vec3 sigmaLiq = -log(clampedLiq) * (0.22 + 0.95 * uLiquidClarity);
+
+  // 1. Check if ray hits the stainless steel heating coil near the bottom (y < 1.44)
+  float tCoil = 1e9;
+  if (cavRo.y < 1.44 || cavRd.y < 0.0) {
+    float tc = 0.01;
+    for (int i = 0; i < 36; i++) {
+      if (tc >= maxDist) break;
+      vec3 pc = cavRo + cavRd * tc;
+      if (pc.y > 1.46 && cavRd.y >= 0.0) break;
+      float dc = sdHeatingCoil(pc);
+      if (dc < 0.0012) {
+        tCoil = tc;
+        break;
+      }
+      tc += max(0.006, dc * 0.85);
+    }
+  }
+
+  // March wax up to min(maxDist, tCoil): wax in front of the coil naturally occludes it,
+  // while coil wires in clear fluid (or glimpsed where wax recedes) remain crisp!
+  float marchEnd = min(maxDist, tCoil);
+
+  // 2. Hybrid Volume Sphere-Tracing through uWaxVolume!
+  bool hitWax = false;
+  bool needsPolish = false;
+  float tPrev = 0.0;
+  float tBracketHi = 0.0;
+  float phiPrev = sampleWaxGrid(cavRo).r;
+  float tHit = 0.0;
+
+  if (phiPrev >= 1.0) {
+    hitWax = true;
+    tHit = 0.002;
+  } else {
+    float t = 0.008 + pixelHash * 0.012;
+    for (int step = 0; step < 96; step++) {
+      if (t >= marchEnd) break;
+      vec3 p = cavRo + cavRd * t;
+      vec4 vox = sampleWaxGrid(p);
+      float phi = vox.r;
+
+      if (phi >= 1.0) {
+        hitWax = true;
+        needsPolish = true;
+        tBracketHi = t;
+        break;
+      }
+
+      tPrev = t;
+      phiPrev = phi;
+
+      // Fast adaptive step: large step when outside parcel halos (vox.a == 0), fine step near surface!
+      float dt = (vox.a < 0.002)
+        ? 0.052
+        : clamp((1.0 - phi) * 0.042, 0.014, 0.042);
+      t += dt;
+    }
+  }
+
+  // Polish bracketed root [tPrev, tBracketHi] OUTSIDE the 96-step loop so D3D11 FXC links cleanly!
+  if (needsPolish) {
+    float a = tPrev;
+    float b = tBracketHi;
+    float fa = evalWaxScalarExact(cavRo + cavRd * a) - 1.0;
+    float fb = evalWaxScalarExact(cavRo + cavRd * b) - 1.0;
+    for (int k = 0; k < 3; k++) {
+      float denom = fb - fa;
+      float mid = (abs(denom) > 1e-5)
+        ? clamp(a - fa * (b - a) / denom, a + 0.1 * (b - a), b - 0.1 * (b - a))
+        : 0.5 * (a + b);
+      float fm = evalWaxScalarExact(cavRo + cavRd * mid) - 1.0;
+      if (fm > 0.0) {
+        b = mid;
+        fb = fm;
+      } else {
+        a = mid;
+        fa = fm;
+      }
+    }
+    tHit = 0.5 * (a + b);
+  }
+
+  float travelDist = hitWax ? tHit : marchEnd;
+  vec3 surfaceRadiance = vec3(0.0);
+
+  if (hitWax) {
+    // Compute infinite-resolution exact analytical surface normal & thermal properties!
+    vec3 hitPos = cavRo + cavRd * tHit;
+    vec3 waxN;
+    float waxTemp, waxSolid;
+    evalWaxExact(hitPos, waxN, waxTemp, waxSolid);
+    if (dot(waxN, cavRd) > 0.0) waxN = -waxN;
+    surfaceRadiance = shadeWaxSurface(hitPos, waxN, cavRd, waxTemp, waxSolid);
+  } else if (tCoil < maxDist) {
+    // Hit the stainless steel heating coil!
+    vec3 pCoil = cavRo + cavRd * tCoil;
+    vec3 nCoil = calcCoilNormal(pCoil);
+    surfaceRadiance = shadeCoil(pCoil, nCoil, cavRd);
+  } else {
+    // Ray reached the back/top/bottom boundary of the liquid cavity!
+    vec3 exitPos = cavRo + cavRd * maxDist;
+    float exitR = length(exitPos.xz);
+    float exitCavR = cavityRadius(exitPos.y);
+    float menY = meniscusHeight(exitR, exitCavR);
+
+    if (exitPos.y >= menY - 0.018 && cavRd.y > 0.0) {
+      // --- TOP LIQUID MENISCUS UNDERSIDE: TOTAL INTERNAL REFLECTION MIRROR! ---
+      // Rising blobs reflect upside-down in the shimmering top meniscus just like a real lava lamp!
+      float q = clamp(exitR / max(exitCavR, 1e-4), 0.0, 1.0);
+      vec3 rHat = (exitR > 1e-4) ? vec3(exitPos.x / exitR, 0.0, exitPos.z / exitR) : vec3(0.0);
+      vec3 menNormal = normalize(vec3(0.0, -1.0, 0.0) + rHat * (0.10 * q * q * q));
+      vec3 tirDir = reflect(cavRd, menNormal);
+
+      // Compute TIR / Fresnel for liquid (1.36) -> air gap (1.0)
+      float cosI = max(0.0, dot(-cavRd, menNormal));
+      float sin2T = (1.36 * 1.36) * (1.0 - cosI * cosI);
+      float tirWeight = (sin2T >= 1.0) ? 1.0 : (0.04 + 0.96 * pow(1.0 - cosI, 5.0));
+
+      // Trace reflected ray downward into uWaxVolume to reflect glowing blobs below!
+      vec3 reflCol = vec3(0.02, 0.02, 0.03) * uRoomLight;
+      bool hitRefl = false;
+      vec3 hitMp = vec3(0.0);
+      vec4 hitMv = vec4(0.0);
+      float hitTr = 0.0;
+      float tr = 0.02;
+      for (int m = 0; m < 28; m++) {
+        vec3 mp = exitPos + tirDir * tr;
+        if (mp.y < 1.30 || length(mp.xz) > cavityRadius(mp.y)) break;
+        vec4 mv = sampleWaxGrid(mp);
+        if (mv.r >= 1.0) {
+          hitRefl = true;
+          hitMp = mp;
+          hitMv = mv;
+          hitTr = tr;
+          break;
+        }
+        tr += 0.048;
+      }
+      if (hitRefl) {
+        const float ge = 0.025;
+        vec3 mn = normalize(-vec3(
+          sampleWaxGrid(hitMp + vec3(ge, 0.0, 0.0)).r - sampleWaxGrid(hitMp - vec3(ge, 0.0, 0.0)).r,
+          sampleWaxGrid(hitMp + vec3(0.0, ge, 0.0)).r - sampleWaxGrid(hitMp - vec3(0.0, ge, 0.0)).r,
+          sampleWaxGrid(hitMp + vec3(0.0, 0.0, ge)).r - sampleWaxGrid(hitMp - vec3(0.0, 0.0, ge)).r
+        ));
+        reflCol = shadeWaxSurface(hitMp, mn, tirDir, hitMv.g, hitMv.b) * exp(-sigmaLiq * hitTr);
+      }
+      // Subtle dark inner cap underside where not TIR
+      vec3 capUnder = vec3(0.015) * uRoomLight;
+      surfaceRadiance = mix(capUnder, reflCol * 0.92, tirWeight);
+    } else if (exitPos.y <= 1.295 && exitR < 0.42) {
+      // --- HALOGEN REFLECTOR BULB APERTURE UNDERNEATH BOTTOM GLASS PLATE! ---
+      float aperture = smoothstep(0.42, 0.12, exitR);
+      // Warm incandescent bulb hotspot + faceted dichrioc reflector rings
+      float rings = 0.88 + 0.12 * cos(exitR * 65.0);
+      surfaceRadiance = vec3(1.55, 1.05, 0.62) * (uBulbGlow * 7.5 * aperture * rings)
+                      + vec3(0.06) * uRoomLight;
+    } else {
+      // Refract out the back glass wall into the room, smoothly blending into the lower metal cup below y = 1.565!
+      vec3 backGlassN = -calcGlassOuterNormal(exitPos);
+      vec3 outDir = refract(cavRd, backGlassN, 1.0 / 1.12); // net cylindrical lensing
+      if (dot(outDir, outDir) < 1e-4) outDir = reflect(cavRd, backGlassN);
+      vec3 bgThrough = renderBackdropAndTable(exitPos + cavRd * 0.06, normalize(outDir));
+
+      // Internal back-glass Fresnel reflection
+      float cosBack = max(0.0, dot(-cavRd, backGlassN));
+      float fBack = 0.035 + 0.35 * pow(1.0 - cosBack, 5.0);
+      vec3 backRefl = sampleRoomEnv(reflect(cavRd, backGlassN), 0.08);
+      vec3 glassExitCol = mix(bgThrough, backRefl, fBack);
+
+      float cupMask = smoothstep(1.575, 1.525, exitPos.y);
+      if (cupMask > 0.001) {
+        vec3 cupN = normalize(vec3(-exitPos.x, 0.45, -exitPos.z));
+        vec3 cupCol = shadeBrushedMetal(exitPos, cupN, cavRd, 1);
+        surfaceRadiance = mix(glassExitCol, cupCol, cupMask);
+      } else {
+        surfaceRadiance = glassExitCol;
+      }
+    }
+  }
+
+  // 3. Attenuate surface radiance by Beer-Lambert liquid dye absorption!
+  vec3 transmittance = exp(-sigmaLiq * travelDist);
+  vec3 finalLiq = surfaceRadiance * transmittance;
+
+  // 4. Accumulate Volumetric Tyndall Light-Shafts (Upward Halogen Spotlight with Wax Shadowing!)
+  if (uBulbGlow > 0.005 && travelDist > 0.02) {
+    const int VOL_STEPS = 7;
+    float vStep = min(travelDist, 2.8) / float(VOL_STEPS);
+    vec3 bulbPos = vec3(0.0, 1.12, 0.0);
+    vec3 volAccum = vec3(0.0);
+
+    for (int i = 0; i < VOL_STEPS; i++) {
+      float tv = (float(i) + pixelHash) * vStep;
+      vec3 vp = cavRo + cavRd * tv;
+      vec3 toBulb = bulbPos - vp;
+      float dBulb = length(toBulb);
+      vec3 lb = toBulb / max(dBulb, 1e-4);
+
+      // Spotlight cone upward through the bottle
+      float cone = smoothstep(0.58, 0.90, -lb.y);
+      if (cone > 0.01) {
+        // Fast 2-tap shadow lookup in uWaxVolume toward bulb: big blobs cast volumetric shadow cones!
+        float s1 = sampleWaxGrid(vp + lb * min(0.28, dBulb * 0.35)).r;
+        float s2 = sampleWaxGrid(vp + lb * min(0.65, dBulb * 0.72)).r;
+        float occ = clamp(1.0 - 0.55 * max(0.0, s1 - 0.35) - 0.55 * max(0.0, s2 - 0.35), 0.08, 1.0);
+
+        float scatter = cone * occ / (0.28 + 0.55 * dBulb * dBulb);
+        vec3 pathTrans = exp(-sigmaLiq * tv);
+        volAccum += scatter * pathTrans * vStep;
+      }
+    }
+
+    vec3 scatterHue = mix(vec3(1.15, 0.82, 0.50), uLiquidColor * vec3(1.2, 0.95, 0.75), 0.55);
+    finalLiq += scatterHue * volAccum * (uBulbGlow * 0.42);
+  }
+
+  return finalLiq;
+}
+
+// ============================================================================
+// Main Camera Ray Integrator
+// ============================================================================
+void main() {
+  vec2 fragCoord = vUv * uResolution;
+  vec2 ndc = (fragCoord * 2.0 - uResolution) / uResolution.y + uLensShift;
+
+  vec3 ro = uCamPos;
+  vec3 rd = normalize(uCamMat * vec3(ndc * uFovScale, -1.0));
+
+  // Temporal/spatial hash for jittered volumetric sampling (zero banding!)
+  float pixelHash = fract(52.9829189 * fract(dot(fragCoord, vec2(0.06711056, 0.00583715))));
+
+  float tBoundMin, tBoundMax;
+  if (!intersectLampBounds(ro, rd, tBoundMin, tBoundMax)) {
+    fragColor = vec4(sanitizeHdr(renderBackdropAndTable(ro, rd)), 1.0);
+    return;
+  }
+
+  // Sphere-trace outer lamp hardware (Metal Base + Cap) AND Outer Glass Bottle
+  float tMetal = 1e9;
+  int hitMetalPart = 0;
+  {
+    float t = max(0.01, tBoundMin);
+    for (int i = 0; i < 72; i++) {
+      if (t > tBoundMax) break;
+      vec3 p = ro + rd * t;
+      int pid;
+      float dm = sdMetalHardware(p, pid);
+      if (dm < 0.0009) {
+        tMetal = t;
+        hitMetalPart = pid;
+        break;
+      }
+      t += max(0.004, dm * 0.90);
+    }
+  }
+
+  float tGlassIn = 1e9;
+  {
+    float t = max(0.01, tBoundMin);
+    float limit = min(tBoundMax, tMetal);
+    for (int i = 0; i < 64; i++) {
+      if (t > limit) break;
+      vec3 p = ro + rd * t;
+      float dg = sdGlassOuter(p);
+      if (dg < 0.0009) {
+        tGlassIn = t;
+        break;
+      }
+      t += max(0.004, dg * 0.92);
+    }
+  }
+
+  // Case 1: Ray hits opaque metal Base or Top Cap first!
+  if (tMetal < tGlassIn && tMetal < 1e8) {
+    vec3 pHit = ro + rd * tMetal;
+    vec3 nHit = calcMetalNormal(pHit);
+    vec3 col = shadeBrushedMetal(pHit, nHit, rd, hitMetalPart);
+    fragColor = vec4(sanitizeHdr(col), 1.0);
+    return;
+  }
+
+  // Case 2: Ray hits the Borosilicate Glass Bottle!
+  if (tGlassIn < 1e8) {
+    vec3 gPos = ro + rd * tGlassIn;
+    vec3 gNorm = calcGlassOuterNormal(gPos);
+    float cosTheta = max(0.001, dot(-rd, gNorm));
+
+    // Crisp outer glass Schlick Fresnel (n_glass = 1.50 -> F0 = 0.04)
+    float fGlass = 0.04 + 0.96 * pow(1.0 - cosTheta, 5.0);
+    vec3 outerRefl = sampleRoomEnv(reflect(rd, gNorm), 0.025);
+
+    // Refract ray into glass / liquid!
+    vec3 refrDir = normalize(refract(rd, gNorm, 1.0 / 1.14));
+
+    // March short step through the 0.044 glass wall to find if ray enters the inner liquid cavity!
+    bool entersCavity = false;
+    float tCavEnter = 0.0;
+    {
+      float tc = 0.005;
+      for (int i = 0; i < 24; i++) {
+        vec3 pc = gPos + refrDir * tc;
+        float dc = sdLiquidCavity(pc);
+        if (dc <= 0.0008) {
+          entersCavity = true;
+          tCavEnter = tc;
+          break;
+        }
+        if (sdGlassOuter(pc) > 0.015 || tc > 0.35) break;
+        tc += max(0.004, dc * 0.85);
+      }
+    }
+
+    vec3 transmittedCol;
+
+    if (entersCavity) {
+      vec3 cavEnterPos = gPos + refrDir * (tCavEnter + 0.0015);
+      // Find exit distance from liquid cavity along refrDir
+      float tCavExit = 0.003;
+      for (int i = 0; i < 64; i++) {
+        vec3 pe = cavEnterPos + refrDir * tCavExit;
+        float de = -sdLiquidCavity(pe); // positive while inside cavity!
+        if (de < 0.0008) break;
+        tCavExit += max(0.005, de * 0.92);
+      }
+
+      transmittedCol = traceLiquidInterior(cavEnterPos, refrDir, tCavExit, pixelHash);
+
+      // Subtle thick-glass wall optical edge gleam near silhouette
+      float wallChord = clamp(tCavEnter / 0.14, 0.0, 1.0);
+      vec3 pipeGlow = mix(vec3(1.0, 0.68, 0.35), uWaxColor, 0.35)
+                    * exp(-max(0.0, gPos.y - 1.45) * 0.55) * uBulbGlow * 0.25 * wallChord;
+      transmittedCol += pipeGlow;
+    } else {
+      // --- GRAZING BOROSILICATE GLASS RIM! ---
+      // Ray travels purely through the curved glass wall without touching the liquid cavity!
+      float tGlassOut = 0.02;
+      for (int i = 0; i < 32; i++) {
+        vec3 pg = gPos + refrDir * tGlassOut;
+        float dg = -sdGlassOuter(pg);
+        if (dg < 0.001) break;
+        tGlassOut += max(0.008, dg * 0.9);
+      }
+      vec3 exitGlassPos = gPos + refrDir * (tGlassOut + 0.01);
+      vec3 exitNorm = -calcGlassOuterNormal(exitGlassPos);
+      vec3 exitDir = refract(refrDir, exitNorm, 1.14);
+      if (dot(exitDir, exitDir) < 1e-4) exitDir = reflect(refrDir, exitNorm);
+
+      vec3 rimBg = renderBackdropAndTable(exitGlassPos, normalize(exitDir));
+      // Borosilicate faint blue-green tint + authentic upward halogen light-piping inside the glass rim!
+      vec3 boroTint = exp(-vec3(0.32, 0.10, 0.16) * tGlassOut * 2.5);
+      vec3 lightPipe = mix(vec3(1.15, 0.78, 0.42), uWaxColor + 0.25, 0.4)
+                     * exp(-max(0.0, gPos.y - 1.42) * 0.52) * uBulbGlow * 0.55;
+      transmittedCol = rimBg * boroTint + lightPipe;
+    }
+
+    vec3 finalGlass = mix(transmittedCol, outerRefl, fGlass);
+    fragColor = vec4(sanitizeHdr(finalGlass), 1.0);
+    return;
+  }
+
+  // Case 3: Ray passed through bounding cylinder air space without hitting lamp
+  fragColor = vec4(sanitizeHdr(renderBackdropAndTable(ro, rd)), 1.0);
+}
+`;
+
+  // ==========================================================================
+  // PASS 3 & 4: Dual-Kawase HDR Bloom (Soft Threshold + Downsample & Upsample)
+  // ==========================================================================
+  const BLOOM_DOWN_FRAG = `#version 300 es
+precision highp float;
+in vec2 vUv;
+out vec4 fragColor;
+
+uniform sampler2D uSource;
+uniform vec2 uTexelSize;
+uniform int uFirstPass;
+
+vec3 softThreshold(vec3 c) {
+  float br = max(c.r, max(c.g, c.b));
+  float knee = 0.45;
+  float thresh = 0.72;
+  float soft = clamp(br - thresh + knee, 0.0, 2.0 * knee);
+  soft = (soft * soft) / (4.0 * knee + 1e-5);
+  float contrib = max(soft, br - thresh) / max(br, 1e-4);
+  return c * max(0.0, contrib);
+}
+
+void main() {
+  vec2 h = uTexelSize * 0.5;
+  vec3 c0 = texture(uSource, vUv).rgb * 4.0;
+  vec3 c1 = texture(uSource, vUv - h).rgb;
+  vec3 c2 = texture(uSource, vUv + h).rgb;
+  vec3 c3 = texture(uSource, vUv + vec2(h.x, -h.y)).rgb;
+  vec3 c4 = texture(uSource, vUv + vec2(-h.x, h.y)).rgb;
+  vec3 res = (c0 + c1 + c2 + c3 + c4) / 8.0;
+  if (uFirstPass == 1) {
+    res = softThreshold(res);
+  }
+  if (any(isnan(res)) || any(isinf(res))) {
+    res = vec3(0.0);
+  }
+  fragColor = vec4(clamp(res, vec3(0.0), vec3(24.0)), 1.0);
+}
+`;
+
+  const BLOOM_UP_FRAG = `#version 300 es
+precision highp float;
+in vec2 vUv;
+out vec4 fragColor;
+
+uniform sampler2D uSource;
+uniform sampler2D uHighMip;
+uniform vec2 uTexelSize;
+
+void main() {
+  vec2 h = uTexelSize;
+  vec3 sum = vec3(0.0);
+  sum += texture(uSource, vUv + vec2(-h.x * 2.0, 0.0)).rgb;
+  sum += texture(uSource, vUv + vec2(-h.x,  h.y)).rgb * 2.0;
+  sum += texture(uSource, vUv + vec2( 0.0,  h.y * 2.0)).rgb;
+  sum += texture(uSource, vUv + vec2( h.x,  h.y)).rgb * 2.0;
+  sum += texture(uSource, vUv + vec2( h.x * 2.0, 0.0)).rgb;
+  sum += texture(uSource, vUv + vec2( h.x, -h.y)).rgb * 2.0;
+  sum += texture(uSource, vUv + vec2( 0.0, -h.y * 2.0)).rgb;
+  sum += texture(uSource, vUv + vec2(-h.x, -h.y)).rgb * 2.0;
+  vec3 lowBlur = sum / 12.0;
+  vec3 highDetail = texture(uHighMip, vUv).rgb;
+  fragColor = vec4(highDetail * 0.62 + lowBlur * 0.78, 1.0);
+}
+`;
+
+  // ==========================================================================
+  // PASS 5: Final HDR Composite (Bloom + ACES Filmic Curve + Anti-Banding Dither)
+  // ==========================================================================
+  const COMPOSITE_FRAG = `#version 300 es
+precision highp float;
+in vec2 vUv;
+out vec4 fragColor;
+
+uniform sampler2D uSceneTex;
+uniform sampler2D uBloomTex;
+uniform vec2 uResolution;
+uniform float uBloomStrength;
+
+// ACES-inspired filmic tonemapper with natural warm highlight desaturation
+// (prevents glowing red/orange wax from clipping to harsh flat neon!)
+vec3 filmicTonemap(vec3 x) {
+  // Subtle cross-channel luminance crosstalk so intense incandescent cores roll off to warm golden-white
+  float lum = dot(x, vec3(0.2126, 0.7152, 0.0722));
+  vec3 desat = mix(x, vec3(lum) * vec3(1.06, 0.99, 0.92), clamp((lum - 0.85) / (lum + 2.2), 0.0, 0.58));
+
+  const float a = 2.51;
+  const float b = 0.03;
+  const float c = 2.43;
+  const float d = 0.59;
+  const float e = 0.14;
+  return clamp((desat * (a * desat + b)) / (desat * (c * desat + d) + e), 0.0, 1.0);
+}
+
+void main() {
+  // Subtle optical chromatic dispersion only near outer lens corners
+  vec2 centered = vUv - 0.5;
+  float r2 = dot(centered, centered);
+  vec2 caOffset = centered * (0.0018 * r2);
+
+  vec3 hdr;
+  hdr.r = texture(uSceneTex, vUv + caOffset).r;
+  hdr.g = texture(uSceneTex, vUv).g;
+  hdr.b = texture(uSceneTex, vUv - caOffset).b;
+
+  vec3 bloom = texture(uBloomTex, vUv).rgb;
+  hdr += bloom * uBloomStrength;
+
+  // Gentle cinema lens vignette
+  float vignette = 1.0 - 0.28 * r2;
+  hdr *= vignette;
+
+  vec3 ldr = filmicTonemap(hdr);
+  // Linear to sRGB gamma
+  ldr = pow(max(ldr, vec3(0.0)), vec3(1.0 / 2.2));
+
+  // Interleaved gradient noise dither (+/- 0.75/255) -> eliminates 100% of dark gradient banding!
+  vec2 fc = vUv * uResolution;
+  float ign = fract(52.9829189 * fract(dot(fc, vec2(0.06711056, 0.00583715))));
+  ldr += (ign - 0.5) * (1.5 / 255.0);
+
+  fragColor = vec4(clamp(ldr, 0.0, 1.0), 1.0);
+}
+`;
+
+  window.LavaLamp = window.LavaLamp || {};
+  window.LavaLamp.Shaders = {
+    FULLSCREEN_VERT,
+    VOLUME_FRAG,
+    SCENE_FRAG,
+    BLOOM_DOWN_FRAG,
+    BLOOM_UP_FRAG,
+    COMPOSITE_FRAG
+  };
+})();
+
+</script>
+  <script>
+// ============================================================================
+// LavaLamp WebGL 2 Photorealistic Renderer
+// Manages 3D Scalar Volume (80x192x80 RGBA16F), UBOs, Hybrid Raymarcher,
+// Multi-Mip Dual-Kawase HDR Bloom, Orbit Camera, & Ray-Bottle Unprojection.
+// ============================================================================
+
+(function () {
+  'use strict';
+
+  const VOL_X = 80;
+  const VOL_Y = 192;
+  const VOL_Z = 80;
+
+  function hexToLinearRgb(hex) {
+    const clean = hex.replace('#', '');
+    const r = parseInt(clean.substring(0, 2), 16) / 255;
+    const g = parseInt(clean.substring(2, 4), 16) / 255;
+    const b = parseInt(clean.substring(4, 6), 16) / 255;
+    return [
+      Math.pow(r, 2.2),
+      Math.pow(g, 2.2),
+      Math.pow(b, 2.2)
+    ];
+  }
+
+  class LavaRenderer {
+    constructor(canvas) {
+      this.canvas = canvas;
+      const gl = canvas.getContext('webgl2', {
+        alpha: false,
+        antialias: false,
+        depth: false,
+        stencil: false,
+        powerPreference: 'high-performance',
+        preserveDrawingBuffer: false
+      });
+
+      if (!gl) {
+        throw new Error('WebGL 2 is required to run this simulation.');
+      }
+      this.gl = gl;
+
+      // Enable float / half-float render targets & linear filtering
+      this.extColorBufferFloat = gl.getExtension('EXT_color_buffer_float');
+      this.extColorBufferHalfFloat = gl.getExtension('EXT_color_buffer_half_float');
+      this.extFloatLinear = gl.getExtension('OES_texture_float_linear');
+
+      this.useHalfFloat = Boolean(this.extColorBufferFloat || this.extColorBufferHalfFloat);
+
+      // Empty VAO for attribute-less fullscreen triangle (`gl_VertexID`)
+      this.emptyVao = gl.createVertexArray();
+
+      // Compile all shader programs
+      const S = window.LavaLamp.Shaders;
+      this.progVolume = this._createProgram('Volume3D', S.FULLSCREEN_VERT, S.VOLUME_FRAG);
+      this.progScene = this._createProgram('SceneRaymarch', S.FULLSCREEN_VERT, S.SCENE_FRAG);
+      this.progBloomDown = this._createProgram('BloomDown', S.FULLSCREEN_VERT, S.BLOOM_DOWN_FRAG);
+      this.progBloomUp = this._createProgram('BloomUp', S.FULLSCREEN_VERT, S.BLOOM_UP_FRAG);
+      this.progComposite = this._createProgram('Composite', S.FULLSCREEN_VERT, S.COMPOSITE_FRAG);
+
+      // Bind shared `ParcelBlock` UBO to binding point 0 on both Volume & Scene programs
+      this.parcelUbo = gl.createBuffer();
+      gl.bindBuffer(gl.UNIFORM_BUFFER, this.parcelUbo);
+      gl.bufferData(gl.UNIFORM_BUFFER, 56 * 16 * 4, gl.DYNAMIC_DRAW);
+      gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, this.parcelUbo);
+
+      const volBlockIdx = gl.getUniformBlockIndex(this.progVolume, 'ParcelBlock');
+      if (volBlockIdx !== gl.INVALID_INDEX) {
+        gl.uniformBlockBinding(this.progVolume, volBlockIdx, 0);
+      }
+      const sceneBlockIdx = gl.getUniformBlockIndex(this.progScene, 'ParcelBlock');
+      if (sceneBlockIdx !== gl.INVALID_INDEX) {
+        gl.uniformBlockBinding(this.progScene, sceneBlockIdx, 0);
+      }
+
+      // Cache uniform locations
+      this._cacheUniforms();
+
+      // Build 3D scalar volume texture & cached slice FBOs (fast D3D11/ANGLE RTV reuse!)
+      this._initVolume3D();
+
+      // Screen FBOs (created in resize)
+      this.hdrFbo = null;
+      this.hdrTex = null;
+      this.bloomDownFbos = [];
+      this.bloomDownTexs = [];
+      this.bloomUpFbos = [];
+      this.bloomUpTexs = [];
+      this.bloomSizes = [];
+
+      this.renderScale = 1.0; // Quality scale
+      this.width = 0;
+      this.height = 0;
+
+      // Visual & Material settings
+      this.waxHex = '#ff2a12';
+      this.liquidHex = '#5222b8';
+      this.waxColorLinear = hexToLinearRgb(this.waxHex);
+      this.liquidColorLinear = hexToLinearRgb(this.liquidHex);
+      this.liquidClarity = 0.55;
+      this.metalType = 0; // 0=Silver, 1=Brass, 2=MatteBlack, 3=Copper
+      this.roomLight = 0.36;
+      this.bloomStrength = 0.34;
+
+      // Orbit Camera State (smoothly damped, full head-to-toe lamp + tabletop framing!)
+      this.camYaw = 0.24;
+      this.camPitch = 0.08;
+      this.camDist = 8.65;
+      this.targetYaw = 0.24;
+      this.targetPitch = 0.08;
+      this.targetDist = 8.65;
+      this.camTarget = [0.0, 2.58, 0.0];
+      this.fovDeg = 42.0;
+      this.lensShiftX = 0.0;
+
+      this.camPos = new Float32Array(3);
+      this.camMat = new Float32Array(9);
+
+      this.resize();
+      this._updateCamera(1.0);
+    }
+
+    _compileShader(name, type, source) {
+      const gl = this.gl;
+      const sh = gl.createShader(type);
+      gl.shaderSource(sh, source);
+      gl.compileShader(sh);
+      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+        const info = gl.getShaderInfoLog(sh);
+        gl.deleteShader(sh);
+        throw new Error(`[${name}] Shader compile error:\n${info}`);
+      }
+      return sh;
+    }
+
+    _createProgram(name, vsSrc, fsSrc) {
+      const gl = this.gl;
+      const vs = this._compileShader(name + ':VS', gl.VERTEX_SHADER, vsSrc);
+      const fs = this._compileShader(name + ':FS', gl.FRAGMENT_SHADER, fsSrc);
+      const prog = gl.createProgram();
+      gl.attachShader(prog, vs);
+      gl.attachShader(prog, fs);
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+        const info = gl.getProgramInfoLog(prog);
+        const vsLog = gl.getShaderInfoLog(vs);
+        const fsLog = gl.getShaderInfoLog(fs);
+        gl.deleteShader(vs);
+        gl.deleteShader(fs);
+        gl.deleteProgram(prog);
+        throw new Error(`[${name}] Program link error: ${info} | VS: ${vsLog} | FS: ${fsLog}`);
+      }
+      gl.deleteShader(vs);
+      gl.deleteShader(fs);
+      return prog;
+    }
+
+    _cacheUniforms() {
+      const gl = this.gl;
+      this.uVol = {
+        sliceW: gl.getUniformLocation(this.progVolume, 'uSliceW'),
+        simTime: gl.getUniformLocation(this.progVolume, 'uSimTime')
+      };
+
+      this.uScene = {
+        waxVolume: gl.getUniformLocation(this.progScene, 'uWaxVolume'),
+        resolution: gl.getUniformLocation(this.progScene, 'uResolution'),
+        camPos: gl.getUniformLocation(this.progScene, 'uCamPos'),
+        camMat: gl.getUniformLocation(this.progScene, 'uCamMat'),
+        fovScale: gl.getUniformLocation(this.progScene, 'uFovScale'),
+        lensShift: gl.getUniformLocation(this.progScene, 'uLensShift'),
+        time: gl.getUniformLocation(this.progScene, 'uTime'),
+        bulbGlow: gl.getUniformLocation(this.progScene, 'uBulbGlow'),
+        liquidTemp: gl.getUniformLocation(this.progScene, 'uLiquidTemp'),
+        waxColor: gl.getUniformLocation(this.progScene, 'uWaxColor'),
+        liquidColor: gl.getUniformLocation(this.progScene, 'uLiquidColor'),
+        liquidClarity: gl.getUniformLocation(this.progScene, 'uLiquidClarity'),
+        metalType: gl.getUniformLocation(this.progScene, 'uMetalType'),
+        roomLight: gl.getUniformLocation(this.progScene, 'uRoomLight')
+      };
+
+      this.uBloomDown = {
+        source: gl.getUniformLocation(this.progBloomDown, 'uSource'),
+        texelSize: gl.getUniformLocation(this.progBloomDown, 'uTexelSize'),
+        firstPass: gl.getUniformLocation(this.progBloomDown, 'uFirstPass')
+      };
+
+      this.uBloomUp = {
+        source: gl.getUniformLocation(this.progBloomUp, 'uSource'),
+        highMip: gl.getUniformLocation(this.progBloomUp, 'uHighMip'),
+        texelSize: gl.getUniformLocation(this.progBloomUp, 'uTexelSize')
+      };
+
+      this.uComp = {
+        sceneTex: gl.getUniformLocation(this.progComposite, 'uSceneTex'),
+        bloomTex: gl.getUniformLocation(this.progComposite, 'uBloomTex'),
+        resolution: gl.getUniformLocation(this.progComposite, 'uResolution'),
+        bloomStrength: gl.getUniformLocation(this.progComposite, 'uBloomStrength')
+      };
+    }
+
+    _getRenderableFormat() {
+      const gl = this.gl;
+      if (this.useHalfFloat) {
+        return {
+          internalFormat: gl.RGBA16F,
+          format: gl.RGBA,
+          type: gl.HALF_FLOAT,
+          filter: gl.LINEAR
+        };
+      }
+      return {
+        internalFormat: gl.RGBA8,
+        format: gl.RGBA,
+        type: gl.UNSIGNED_BYTE,
+        filter: gl.LINEAR
+      };
+    }
+
+    _initVolume3D() {
+      const gl = this.gl;
+      const fmt = this._getRenderableFormat();
+
+      this.volTex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_3D, this.volTex);
+      gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, fmt.filter);
+      gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, fmt.filter);
+      gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+      gl.texStorage3D(gl.TEXTURE_3D, 1, fmt.internalFormat, VOL_X, VOL_Y, VOL_Z);
+
+      this.volSliceFbos = new Array(VOL_Z);
+      for (let z = 0; z < VOL_Z; z++) {
+        const fbo = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+        gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, this.volTex, 0, z);
+        if (z === 0) {
+          const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+          if (status !== gl.FRAMEBUFFER_COMPLETE && this.useHalfFloat) {
+            // Fallback to RGBA8 if driver rejects RGBA16F 3D layer attachment
+            this.useHalfFloat = false;
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.deleteFramebuffer(fbo);
+            gl.deleteTexture(this.volTex);
+            this._initVolume3D();
+            return;
+          }
+        }
+        this.volSliceFbos[z] = fbo;
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
+
+    _create2DTarget(w, h) {
+      const gl = this.gl;
+      const fmt = this._getRenderableFormat();
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D, 0, fmt.internalFormat, w, h, 0, fmt.format, fmt.type, null);
+
+      const fbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      return { tex, fbo, w, h };
+    }
+
+    _destroyScreenTargets() {
+      const gl = this.gl;
+      if (this.hdrFbo) gl.deleteFramebuffer(this.hdrFbo);
+      if (this.hdrTex) gl.deleteTexture(this.hdrTex);
+      for (const f of this.bloomDownFbos) gl.deleteFramebuffer(f);
+      for (const t of this.bloomDownTexs) gl.deleteTexture(t);
+      for (const f of this.bloomUpFbos) gl.deleteFramebuffer(f);
+      for (const t of this.bloomUpTexs) gl.deleteTexture(t);
+      this.bloomDownFbos = [];
+      this.bloomDownTexs = [];
+      this.bloomUpFbos = [];
+      this.bloomUpTexs = [];
+      this.bloomSizes = [];
+    }
+
+    resize() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2.0) * this.renderScale;
+      const w = Math.max(64, Math.floor(this.canvas.clientWidth * dpr));
+      const h = Math.max(64, Math.floor(this.canvas.clientHeight * dpr));
+      if (w === this.width && h === this.height && this.hdrFbo) return;
+
+      this.width = w;
+      this.height = h;
+      this.canvas.width = w;
+      this.canvas.height = h;
+
+      this._destroyScreenTargets();
+
+      const hdr = this._create2DTarget(w, h);
+      this.hdrTex = hdr.tex;
+      this.hdrFbo = hdr.fbo;
+
+      // 4-level Dual-Kawase bloom pyramid
+      let bw = w, bh = h;
+      for (let i = 0; i < 4; i++) {
+        bw = Math.max(16, Math.floor(bw * 0.5));
+        bh = Math.max(16, Math.floor(bh * 0.5));
+        const down = this._create2DTarget(bw, bh);
+        this.bloomDownTexs.push(down.tex);
+        this.bloomDownFbos.push(down.fbo);
+        this.bloomSizes.push([bw, bh]);
+      }
+
+      // 3 upsample targets (from level 3 -> 2 -> 1 -> 0)
+      for (let i = 2; i >= 0; i--) {
+        const [uw, uh] = this.bloomSizes[i];
+        const up = this._create2DTarget(uw, uh);
+        this.bloomUpTexs.push(up.tex);
+        this.bloomUpFbos.push(up.fbo);
+      }
+
+      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    }
+
+    setColors(waxHex, liquidHex, clarity) {
+      if (waxHex) {
+        this.waxHex = waxHex;
+        this.waxColorLinear = hexToLinearRgb(waxHex);
+      }
+      if (liquidHex) {
+        this.liquidHex = liquidHex;
+        this.liquidColorLinear = hexToLinearRgb(liquidHex);
+      }
+      if (typeof clarity === 'number') {
+        this.liquidClarity = clarity;
+      }
+    }
+
+    orbit(deltaYaw, deltaPitch) {
+      this.targetYaw -= deltaYaw;
+      // Keep pitch between -0.34 rad (low dramatic tabletop view) and +0.85 rad (top-down inspection)
+      this.targetPitch = Math.max(-0.34, Math.min(0.85, this.targetPitch + deltaPitch));
+    }
+
+    zoom(delta) {
+      this.targetDist = Math.max(3.35, Math.min(10.8, this.targetDist * Math.exp(delta)));
+    }
+
+    _updateCamera(dt) {
+      const blend = Math.min(1.0, dt * 12.0);
+      this.camYaw += (this.targetYaw - this.camYaw) * blend;
+      this.camPitch += (this.targetPitch - this.camPitch) * blend;
+      this.camDist += (this.targetDist - this.camDist) * blend;
+
+      // Architectural lens shift: center lamp in open canvas left of UI sidebar on desktop,
+      // and glide smoothly to dead-center when Zen mode hides the UI!
+      const cw = this.canvas.clientWidth || 1024;
+      const ch = Math.max(1, this.canvas.clientHeight || 768);
+      const isZen = document.body.classList.contains('zen-mode');
+      let targetShiftX = 0.0;
+      if (!isZen && cw > 720) {
+        // Panel occupies ~326px on the right -> shift optical center left by ~163px in NDC-Y units!
+        targetShiftX = (326.0 / ch) * 0.48;
+      }
+      this.lensShiftX += (targetShiftX - this.lensShiftX) * Math.min(1.0, dt * 9.0);
+
+      const cp = Math.cos(this.camPitch);
+      const sp = Math.sin(this.camPitch);
+      const cy = Math.cos(this.camYaw);
+      const sy = Math.sin(this.camYaw);
+
+      const tx = this.camTarget[0];
+      const ty = this.camTarget[1];
+      const tz = this.camTarget[2];
+
+      let cx = tx + this.camDist * cp * sy;
+      let cyPos = ty + this.camDist * sp;
+      let cz = tz + this.camDist * cp * cy;
+
+      // Never allow camera below tabletop plane y = 0.16!
+      if (cyPos < 0.16) cyPos = 0.16;
+
+      this.camPos[0] = cx;
+      this.camPos[1] = cyPos;
+      this.camPos[2] = cz;
+
+      // Forward = normalize(target - camPos)
+      let fx = tx - cx;
+      let fy = ty - cyPos;
+      let fz = tz - cz;
+      const fl = Math.hypot(fx, fy, fz) || 1.0;
+      fx /= fl; fy /= fl; fz /= fl;
+
+      // Right = normalize(cross(forward, worldUp))
+      let rx = -fz;
+      let ry = 0.0;
+      let rz = fx;
+      const rl = Math.hypot(rx, ry, rz) || 1.0;
+      rx /= rl; rz /= rl;
+
+      // Up = cross(right, forward)
+      const ux = ry * fz - rz * fy;
+      const uy = rz * fx - rx * fz;
+      const uz = rx * fy - ry * fx;
+
+      // Column-major mat3 for GLSL: col0 = right, col1 = up, col2 = -forward
+      this.camMat[0] = rx;  this.camMat[1] = ry;  this.camMat[2] = rz;
+      this.camMat[3] = ux;  this.camMat[4] = uy;  this.camMat[5] = uz;
+      this.camMat[6] = -fx; this.camMat[7] = -fy; this.camMat[8] = -fz;
+    }
+
+    // Raycast screen pointer against the glass bottle interior for direct tactile swirling!
+    hitTestGlassInterior(clientX, clientY) {
+      const rect = this.canvas.getBoundingClientRect();
+      const u = (clientX - rect.left) / Math.max(1, rect.width);
+      const v = 1.0 - (clientY - rect.top) / Math.max(1, rect.height);
+      const aspect = rect.width / Math.max(1, rect.height);
+      const ndcX = (u * 2.0 - 1.0) * aspect + this.lensShiftX;
+      const ndcY = (v * 2.0 - 1.0);
+
+      const fovScale = Math.tan((this.fovDeg * 0.5 * Math.PI) / 180.0);
+      const lx = ndcX * fovScale;
+      const ly = ndcY * fovScale;
+      const lz = -1.0;
+
+      const m = this.camMat;
+      let dx = m[0] * lx + m[3] * ly + m[6] * lz;
+      let dy = m[1] * lx + m[4] * ly + m[7] * lz;
+      let dz = m[2] * lx + m[5] * ly + m[8] * lz;
+      const dl = Math.hypot(dx, dy, dz) || 1.0;
+      dx /= dl; dy /= dl; dz /= dl;
+
+      const ox = this.camPos[0], oy = this.camPos[1], oz = this.camPos[2];
+
+      // Intersect ray with vertical axis plane / bottle mid-chord
+      const a = dx * dx + dz * dz;
+      if (a < 1e-6) return null;
+      const tClosest = -(ox * dx + oz * dz) / a;
+      if (tClosest <= 0.1) return null;
+
+      const px = ox + dx * tClosest;
+      const py = oy + dy * tClosest;
+      const pz = oz + dz * tClosest;
+
+      if (py < 1.54 || py > 4.60) return null;
+      const glassR = window.LavaLamp.glassOuterRadius(py);
+      const rAxis = Math.hypot(px, pz);
+      if (rAxis > glassR) return null;
+
+      return [px, py, pz];
+    }
+
+    render(physics, dt, elapsed) {
+      this.resize();
+      this._updateCamera(dt);
+
+      const gl = this.gl;
+      gl.bindVertexArray(this.emptyVao);
+      gl.disable(gl.DEPTH_TEST);
+      gl.disable(gl.BLEND);
+
+      // 1. Upload packed parcel UBO once for both Volume & Scene shaders
+      gl.bindBuffer(gl.UNIFORM_BUFFER, this.parcelUbo);
+      gl.bufferSubData(gl.UNIFORM_BUFFER, 0, physics.uboData);
+
+      // 2. Pass 1: Update 80x192x80 3D Wax Scalar Field Volume
+      gl.useProgram(this.progVolume);
+      gl.uniform1f(this.uVol.simTime, physics.simTime);
+      gl.viewport(0, 0, VOL_X, VOL_Y);
+
+      for (let z = 0; z < VOL_Z; z++) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.volSliceFbos[z]);
+        gl.uniform1f(this.uVol.sliceW, (z + 0.5) / VOL_Z);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+      }
+
+      // 3. Pass 2: Full Photorealistic Raytraced Scene into HDR FBO
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.hdrFbo);
+      gl.viewport(0, 0, this.width, this.height);
+      gl.useProgram(this.progScene);
+
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_3D, this.volTex);
+      gl.uniform1i(this.uScene.waxVolume, 0);
+
+      gl.uniform2f(this.uScene.resolution, this.width, this.height);
+      gl.uniform3fv(this.uScene.camPos, this.camPos);
+      gl.uniformMatrix3fv(this.uScene.camMat, false, this.camMat);
+      gl.uniform1f(this.uScene.fovScale, Math.tan((this.fovDeg * 0.5 * Math.PI) / 180.0));
+      gl.uniform2f(this.uScene.lensShift, this.lensShiftX, 0.0);
+      gl.uniform1f(this.uScene.time, elapsed);
+
+      gl.uniform1f(this.uScene.bulbGlow, physics.bulbGlow);
+      gl.uniform1f(this.uScene.liquidTemp, physics.liquidTemp);
+      gl.uniform3fv(this.uScene.waxColor, this.waxColorLinear);
+      gl.uniform3fv(this.uScene.liquidColor, this.liquidColorLinear);
+      gl.uniform1f(this.uScene.liquidClarity, this.liquidClarity);
+      gl.uniform1i(this.uScene.metalType, this.metalType);
+      gl.uniform1f(this.uScene.roomLight, this.roomLight);
+
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+      // 4. Pass 3: Dual-Kawase HDR Bloom Downsample Pyramid (4 levels)
+      gl.useProgram(this.progBloomDown);
+      gl.uniform1i(this.uBloomDown.source, 0);
+
+      let prevTex = this.hdrTex;
+      let prevW = this.width;
+      let prevH = this.height;
+
+      for (let i = 0; i < 4; i++) {
+        const [bw, bh] = this.bloomSizes[i];
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomDownFbos[i]);
+        gl.viewport(0, 0, bw, bh);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, prevTex);
+        gl.uniform2f(this.uBloomDown.texelSize, 1.0 / prevW, 1.0 / prevH);
+        gl.uniform1i(this.uBloomDown.firstPass, i === 0 ? 1 : 0);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+        prevTex = this.bloomDownTexs[i];
+        prevW = bw;
+        prevH = bh;
+      }
+
+      // 5. Pass 4: Dual-Kawase Progressive Upsample Pyramid Blend (zero GL_BLEND needed)
+      gl.useProgram(this.progBloomUp);
+      gl.uniform1i(this.uBloomUp.source, 0);
+      gl.uniform1i(this.uBloomUp.highMip, 1);
+
+      let currUpTex = this.bloomDownTexs[3];
+      let currUpW = this.bloomSizes[3][0];
+      let currUpH = this.bloomSizes[3][1];
+
+      for (let step = 0; step < 3; step++) {
+        const targetLevel = 2 - step;
+        const [uw, uh] = this.bloomSizes[targetLevel];
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomUpFbos[step]);
+        gl.viewport(0, 0, uw, uh);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, currUpTex);
+
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, this.bloomDownTexs[targetLevel]);
+
+        gl.uniform2f(this.uBloomUp.texelSize, 1.0 / currUpW, 1.0 / currUpH);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+        currUpTex = this.bloomUpTexs[step];
+        currUpW = uw;
+        currUpH = uh;
+      }
+
+      // 6. Pass 5: Final Filmic Composite to Screen
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, this.width, this.height);
+      gl.useProgram(this.progComposite);
+
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.hdrTex);
+      gl.uniform1i(this.uComp.sceneTex, 0);
+
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, currUpTex);
+      gl.uniform1i(this.uComp.bloomTex, 1);
+
+      gl.uniform2f(this.uComp.resolution, this.width, this.height);
+      gl.uniform1f(this.uComp.bloomStrength, this.bloomStrength);
+
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
+  }
+
+  window.LavaLamp = window.LavaLamp || {};
+  window.LavaLamp.LavaRenderer = LavaRenderer;
+})();
+
+</script>
+  <script>
+// ============================================================================
+// Astro Physical Lava Lamp — Main Application Controller
+// ============================================================================
+
+(function () {
+  'use strict';
+
+  const PRESETS = [
+    {
+      name: 'Astro',
+      wax: '#ff2b12',
+      liquid: '#4d1ec2',
+      clarity: 0.56,
+      metal: 0 // Brushed Silver
+    },
+    {
+      name: 'Magma',
+      wax: '#eb170e',
+      liquid: '#ffb319',
+      clarity: 0.48,
+      metal: 1 // Brushed Brass
+    },
+    {
+      name: 'Cyber',
+      wax: '#9dff14',
+      liquid: '#0968c7',
+      clarity: 0.62,
+      metal: 0 // Silver
+    },
+    {
+      name: 'Plum',
+      wax: '#ff2a8d',
+      liquid: '#17279e',
+      clarity: 0.58,
+      metal: 2 // Matte Black
+    },
+    {
+      name: 'Solar',
+      wax: '#ff7a14',
+      liquid: '#fff2d6',
+      clarity: 0.16,
+      metal: 1 // Brass
+    },
+    {
+      name: 'Obsidian',
+      wax: '#c920ff',
+      liquid: '#d6e4ff',
+      clarity: 0.18,
+      metal: 2 // Matte Black
+    }
+  ];
+
+  function init() {
+    const canvas = document.getElementById('lampCanvas');
+    const errorBanner = document.getElementById('errorBanner');
+
+    let physics, renderer;
+    try {
+      physics = new window.LavaLamp.LavaPhysics();
+      renderer = new window.LavaLamp.LavaRenderer(canvas);
+    } catch (err) {
+      console.error(err);
+      errorBanner.style.display = 'flex';
+      errorBanner.textContent = 'Initialization Error: ' + (err && err.message ? err.message : String(err));
+      return;
+    }
+
+    // UI Elements
+    const statusDot = document.getElementById('statusDot');
+    const thermoReadout = document.getElementById('thermoReadout');
+    const btnToggleUi = document.getElementById('btnToggleUi');
+    const btnFullscreen = document.getElementById('btnFullscreen');
+    const btnPower = document.getElementById('btnPower');
+    const btnNudge = document.getElementById('btnNudge');
+    const btnWarmFlow = document.getElementById('btnWarmFlow');
+    const btnColdStart = document.getElementById('btnColdStart');
+
+    const sliderDimmer = document.getElementById('sliderDimmer');
+    const dimmerLabel = document.getElementById('dimmerLabel');
+    const sliderSpeed = document.getElementById('sliderSpeed');
+    const speedLabel = document.getElementById('speedLabel');
+
+    const presetGrid = document.getElementById('presetGrid');
+    const colorWax = document.getElementById('colorWax');
+    const colorLiquid = document.getElementById('colorLiquid');
+    const sliderClarity = document.getElementById('sliderClarity');
+    const clarityLabel = document.getElementById('clarityLabel');
+
+    const metalButtons = document.getElementById('metalButtons');
+    const sliderRoom = document.getElementById('sliderRoom');
+    const roomLabel = document.getElementById('roomLabel');
+    const sliderBloom = document.getElementById('sliderBloom');
+    const bloomLabel = document.getElementById('bloomLabel');
+    const qualityButtons = document.getElementById('qualityButtons');
+    const qualityLabel = document.getElementById('qualityLabel');
+
+    // Build Colorway Preset Cards
+    function setActiveMetalUI(metalIdx) {
+      renderer.metalType = metalIdx;
+      metalButtons.querySelectorAll('.btn').forEach((b) => {
+        b.classList.toggle('active', Number(b.dataset.metal) === metalIdx);
+      });
+    }
+
+    function applyPreset(index) {
+      const p = PRESETS[index];
+      if (!p) return;
+      renderer.setColors(p.wax, p.liquid, p.clarity);
+      colorWax.value = p.wax;
+      colorLiquid.value = p.liquid;
+      sliderClarity.value = String(Math.round(p.clarity * 100));
+      clarityLabel.textContent = Math.round(p.clarity * 100) + '%';
+      setActiveMetalUI(p.metal);
+
+      presetGrid.querySelectorAll('.preset-card').forEach((card, i) => {
+        card.classList.toggle('active', i === index);
+      });
+    }
+
+    PRESETS.forEach((p, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'preset-card' + (i === 0 ? ' active' : '');
+      const sw = document.createElement('span');
+      sw.className = 'swatch-dual';
+      sw.style.background = `linear-gradient(135deg, ${p.wax} 50%, ${p.liquid} 50%)`;
+      const lbl = document.createElement('span');
+      lbl.textContent = p.name;
+      btn.appendChild(sw);
+      btn.appendChild(lbl);
+      btn.addEventListener('click', () => applyPreset(i));
+      presetGrid.appendChild(btn);
+    });
+
+    applyPreset(0);
+
+    // Clear active preset highlight when custom colors edited
+    function clearPresetHighlight() {
+      presetGrid.querySelectorAll('.preset-card').forEach((c) => c.classList.remove('active'));
+    }
+
+    colorWax.addEventListener('input', () => {
+      clearPresetHighlight();
+      renderer.setColors(colorWax.value, null, null);
+    });
+
+    colorLiquid.addEventListener('input', () => {
+      clearPresetHighlight();
+      renderer.setColors(null, colorLiquid.value, null);
+    });
+
+    sliderClarity.addEventListener('input', () => {
+      const val = Number(sliderClarity.value) / 100;
+      clarityLabel.textContent = Math.round(val * 100) + '%';
+      renderer.setColors(null, null, val);
+    });
+
+    // Power & Dimmer
+    function updatePowerUI() {
+      btnPower.classList.toggle('active', physics.powerOn);
+      btnPower.textContent = physics.powerOn ? 'Lamp Power: ON' : 'Lamp Power: OFF';
+      statusDot.classList.toggle('off', !physics.powerOn || physics.dimmer < 0.02);
+      const pct = Math.round(physics.dimmer * 100);
+      const watts = physics.powerOn ? Math.round(40 * physics.dimmer) : 0;
+      dimmerLabel.textContent = `${watts}W · ${pct}%`;
+    }
+
+    btnPower.addEventListener('click', () => {
+      physics.powerOn = !physics.powerOn;
+      updatePowerUI();
+    });
+
+    sliderDimmer.addEventListener('input', () => {
+      physics.dimmer = Number(sliderDimmer.value) / 100;
+      if (physics.dimmer > 0.02 && !physics.powerOn) {
+        physics.powerOn = true;
+      }
+      updatePowerUI();
+    });
+
+    btnNudge.addEventListener('click', () => {
+      physics.nudgeBottle(1.0);
+    });
+
+    btnWarmFlow.addEventListener('click', () => {
+      physics.dimmer = 1.0;
+      sliderDimmer.value = '100';
+      physics.initWarmedUp();
+      updatePowerUI();
+      updateThermoUI();
+    });
+
+    btnColdStart.addEventListener('click', () => {
+      if (physics.dimmer < 0.7) {
+        physics.dimmer = 1.0;
+        sliderDimmer.value = '100';
+      }
+      physics.initColdStart();
+      updatePowerUI();
+      updateThermoUI();
+    });
+
+    sliderSpeed.addEventListener('input', () => {
+      const spd = Number(sliderSpeed.value) / 10;
+      physics.timeScale = spd;
+      speedLabel.textContent = spd.toFixed(1) + '×';
+    });
+
+    // Hardware & Environment
+    metalButtons.querySelectorAll('.btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        setActiveMetalUI(Number(btn.dataset.metal));
+      });
+    });
+
+    sliderRoom.addEventListener('input', () => {
+      const v = Number(sliderRoom.value) / 100;
+      renderer.roomLight = v;
+      roomLabel.textContent = Math.round(v * 100) + '%';
+    });
+
+    sliderBloom.addEventListener('input', () => {
+      const v = Number(sliderBloom.value) / 100;
+      renderer.bloomStrength = v;
+      bloomLabel.textContent = Math.round(v * 100) + '%';
+    });
+
+    qualityButtons.querySelectorAll('.btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const sc = Number(btn.dataset.scale);
+        renderer.renderScale = sc;
+        renderer.resize();
+        qualityButtons.querySelectorAll('.btn').forEach((b) => b.classList.toggle('active', b === btn));
+        const names = { '0.75': 'Perf (0.75×)', '1': 'High (1.0×)', '1.25': 'Ultra (1.25×)' };
+        qualityLabel.textContent = names[String(sc)] || `${sc}×`;
+      });
+    });
+
+    // Zen Mode & Fullscreen
+    function toggleZenMode() {
+      const isZen = document.body.classList.toggle('zen-mode');
+      btnToggleUi.textContent = isZen ? 'Show UI' : 'Hide UI';
+    }
+
+    btnToggleUi.addEventListener('click', toggleZenMode);
+
+    btnFullscreen.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    });
+
+    document.addEventListener('fullscreenchange', () => {
+      btnFullscreen.textContent = document.fullscreenElement ? 'Exit Full' : 'Fullscreen';
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+      const k = e.key.toLowerCase();
+      if (k === 'h') toggleZenMode();
+      else if (k === 'f') btnFullscreen.click();
+      else if (k === ' ') {
+        e.preventDefault();
+        physics.paused = !physics.paused;
+      } else if (k === 't') {
+        physics.nudgeBottle(1.0);
+      } else if (k === 'c') {
+        btnColdStart.click();
+      }
+    });
+
+    // ========================================================================
+    // Pointer Interactions:
+    // - Drag directly on the glass bottle -> Tactile 3D fluid swirl!
+    // - Drag anywhere in the room (or right-drag) -> Smooth Orbit Camera!
+    // - Wheel / Pinch -> Smooth Camera Zoom!
+    // ========================================================================
+    let dragMode = null; // 'orbit' | 'swirl' | null
+    let lastClientX = 0;
+    let lastClientY = 0;
+    let lastWorldHit = null;
+    let activePointers = new Map();
+    let prevPinchDist = 0;
+
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    canvas.addEventListener('pointerdown', (e) => {
+      canvas.setPointerCapture(e.pointerId);
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (activePointers.size === 2) {
+        dragMode = 'pinch';
+        physics.setPointerImpulse(false);
+        const pts = Array.from(activePointers.values());
+        prevPinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        return;
+      }
+
+      lastClientX = e.clientX;
+      lastClientY = e.clientY;
+
+      if (e.button === 2 || e.altKey) {
+        dragMode = 'orbit';
+      } else {
+        const hit = renderer.hitTestGlassInterior(e.clientX, e.clientY);
+        if (hit) {
+          dragMode = 'swirl';
+          lastWorldHit = hit;
+          canvas.style.cursor = 'pointer';
+        } else {
+          dragMode = 'orbit';
+          canvas.style.cursor = 'grabbing';
+        }
+      }
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (activePointers.has(e.pointerId)) {
+        activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      }
+
+      if (dragMode === 'pinch' && activePointers.size === 2) {
+        const pts = Array.from(activePointers.values());
+        const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        if (prevPinchDist > 10) {
+          renderer.zoom((prevPinchDist - dist) * 0.0045);
+        }
+        prevPinchDist = dist;
+        return;
+      }
+
+      if (!dragMode) {
+        // Subtle hover cursor feedback over glass globe
+        const hoverGlass = renderer.hitTestGlassInterior(e.clientX, e.clientY);
+        canvas.style.cursor = hoverGlass ? 'pointer' : 'grab';
+        return;
+      }
+
+      const dx = e.clientX - lastClientX;
+      const dy = e.clientY - lastClientY;
+      lastClientX = e.clientX;
+      lastClientY = e.clientY;
+
+      if (dragMode === 'orbit') {
+        renderer.orbit(dx * 0.0055, dy * 0.0045);
+      } else if (dragMode === 'swirl') {
+        const hit = renderer.hitTestGlassInterior(e.clientX, e.clientY);
+        if (hit && lastWorldHit) {
+          const vx = (hit[0] - lastWorldHit[0]) * 18.0;
+          const vy = (hit[1] - lastWorldHit[1]) * 18.0;
+          const vz = (hit[2] - lastWorldHit[2]) * 18.0;
+          physics.setPointerImpulse(true, hit, [vx, vy, vz]);
+          lastWorldHit = hit;
+        } else {
+          physics.setPointerImpulse(false);
+        }
+      }
+    });
+
+    function endPointer(e) {
+      activePointers.delete(e.pointerId);
+      if (activePointers.size === 0) {
+        dragMode = null;
+        lastWorldHit = null;
+        physics.setPointerImpulse(false);
+        canvas.style.cursor = 'grab';
+      }
+    }
+
+    canvas.addEventListener('pointerup', endPointer);
+    canvas.addEventListener('pointercancel', endPointer);
+
+    canvas.addEventListener('dblclick', (e) => {
+      const hit = renderer.hitTestGlassInterior(e.clientX, e.clientY);
+      if (hit) {
+        physics.nudgeBottle(0.85);
+      }
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      renderer.zoom(e.deltaY * 0.0011);
+    }, { passive: false });
+
+    window.addEventListener('resize', () => renderer.resize());
+
+    // Live Thermometer Status Loop
+    function updateThermoUI() {
+      const info = physics.getThermometerReading();
+      thermoReadout.textContent = `${info.celsius}°C · ${info.status}`;
+    }
+    updatePowerUI();
+    updateThermoUI();
+
+    // Main Animation Loop
+    let prevTime = performance.now();
+    let elapsed = 0.0;
+    let lastUiTick = 0.0;
+
+    function frame(now) {
+      const dt = Math.min(0.05, Math.max(0.001, (now - prevTime) * 0.001));
+      prevTime = now;
+      elapsed += dt;
+
+      physics.step(dt);
+      renderer.render(physics, dt, elapsed);
+
+      if (elapsed - lastUiTick > 0.25) {
+        lastUiTick = elapsed;
+        updateThermoUI();
+      }
+
+      requestAnimationFrame(frame);
+    }
+
+    requestAnimationFrame(frame);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+
+</script>
+</body>
+</html>
